@@ -1,0 +1,2062 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de espectrofotómetro UV-Vis: Práctica Completa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bench:#E3E7E5; --surface:#F6F7F5; --paper:#FFFEF9; --ink:#1B1E20; --muted:#5B6368; --line:#C8CECB;
+  --device:#D9D7CF; --device-2:#CAC7BD; --device-edge:#A7A49A; --dev-ink:#2A2D2B;
+  --key:#33383D; --key-ink:#F3F3EF;
+  --lcd:#AEBF97; --lcd-ink:#1D2719; --lcd-off:#8C9285;
+  --signal:#2753C4; --bad:#AE3629; --good:#2D7748; --note:#F2E6A2;
+  --ui:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
+  --pix:"VT323","Courier New",ui-monospace,monospace;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bench:#1B1F21; --surface:#252A2D; --paper:#2B3033; --ink:#E5E8E6; --muted:#9AA3A8; --line:#3B4246;
+    --device:#BFBCB3; --device-2:#AFACA2; --device-edge:#8C897F;
+    --signal:#7FA2FF; --bad:#F08073; --good:#7CC795;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bench:#1B1F21; --surface:#252A2D; --paper:#2B3033; --ink:#E5E8E6; --muted:#9AA3A8; --line:#3B4246;
+  --device:#BFBCB3; --device-2:#AFACA2; --device-edge:#8C897F;
+  --signal:#7FA2FF; --bad:#F08073; --good:#7CC795;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bench);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.45}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+
+/* Top bar */
+.top{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top h1{font-size:1.05rem;margin:0;display:flex;align-items:center;gap:8px}
+.top .prog{color:var(--muted);font-size:.88rem;background:rgba(0,0,0,.05);padding:2px 8px;border-radius:4px}
+.top .sp{flex:1}
+.top label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem}
+.top-nav-links{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;padding:4px 4px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:.88rem;display:inline-flex;align-items:center;gap:4px}
+.linkbtn:hover{color:var(--signal)}
+
+/* Lab layout */
+.lab{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr);gap:16px 20px;max-width:1220px;margin:0 auto;padding:16px 20px 80px}
+.cartel-inst{grid-column:1 / -1;margin-bottom:2px}
+.rig{grid-column:1;grid-row:2}
+.bench{grid-column:1;grid-row:3}
+.ticket{grid-column:2;grid-row:2 / span 2;align-self:start;position:sticky;top:12px}
+@media (max-width:920px){
+  .lab{grid-template-columns:1fr;padding:12px 12px 90px;gap:14px}
+  .cartel-inst{grid-column:1}
+  .ticket{grid-column:1;grid-row:auto;position:static}
+  .rig,.bench{grid-row:auto}
+}
+
+/* Cartel de Instrucciones (Billboard superior) */
+.cartel-inst{background:var(--paper);border:2px solid var(--signal);border-radius:10px;padding:12px 16px;box-shadow:0 3px 8px rgba(0,0,0,0.06)}
+.cartel-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:10px}
+.cartel-tag{display:inline-flex;align-items:center;gap:6px;background:var(--signal);color:#fff;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:3px 10px;border-radius:4px;text-transform:uppercase}
+.cartel-prog{font-size:.85rem;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:3px 12px;border-radius:12px}
+.cartel-toggle-btn{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:4px 10px;font-size:.82rem;font-weight:700;cursor:pointer;color:var(--ink);transition:all .15s}
+.cartel-toggle-btn:hover{background:var(--paper);border-color:var(--signal);color:var(--signal)}
+.cartel-active-step{display:flex;align-items:flex-start;gap:14px}
+.cartel-num{width:36px;height:36px;border-radius:50%;background:var(--signal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex-shrink:0;margin-top:2px;box-shadow:0 2px 4px rgba(39,83,196,.3)}
+.cartel-info{flex:1;min-width:0}
+.cartel-title{font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:2px;line-height:1.3}
+.cartel-desc{font-size:.92rem;color:var(--muted);line-height:1.4}
+.cartel-all-steps{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:6px 14px;font-size:.86rem;max-height:260px;overflow-y:auto}
+.cartel-all-steps[hidden]{display:none}
+.cartel-step-item{display:flex;align-items:flex-start;gap:8px;color:var(--muted);padding:4px 6px;border-radius:4px;line-height:1.3}
+.cartel-step-item.done{text-decoration:line-through;color:var(--good);opacity:.75}
+.cartel-step-item.active{color:var(--ink);font-weight:700;background:rgba(39,83,196,.08);border-left:3px solid var(--signal)}
+.cartel-step-item .chk{font-weight:700;min-width:22px}
+
+/* Instrument */
+.device{position:relative;background:var(--device);border:1px solid var(--device-edge);border-radius:18px 18px 10px 10px;padding:16px 18px 14px;display:grid;grid-template-columns:minmax(150px,.8fr) minmax(0,1.25fr);gap:18px;color:var(--dev-ink);box-shadow:0 3px 0 var(--device-edge)}
+.brand{grid-column:1 / -1;display:flex;justify-content:space-between;font-size:.8rem;color:#575b57}
+.brand b{font-weight:700;letter-spacing:.04em}
+.note{position:absolute;top:-14px;left:18%;background:var(--note);color:#3A3420;padding:6px 12px;font-size:.82rem;transform:rotate(-2deg);border:1px solid #D6C779;border-radius:3px;z-index:2;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);text-align:left;line-height:1.2}
+.note:hover{transform:rotate(0deg) scale(1.03);box-shadow:0 4px 10px rgba(0,0,0,.2)}
+.note-sub{display:block;font-size:.72rem;color:#6A571B;text-decoration:underline;margin-top:2px}
+.compartment{position:relative;background:var(--device-2);border:1px solid var(--device-edge);border-radius:8px;height:262px;overflow:hidden}
+.lid{position:absolute;left:0;right:0;top:0;height:36px;z-index:3;border:0;border-bottom:1px solid var(--device-edge);background:#BDBAB0;color:var(--dev-ink);font-weight:700;cursor:pointer}
+.cover{position:absolute;left:0;right:0;top:36px;bottom:46px;z-index:2;background:#C3C0B6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;font-size:.9rem;color:#4B4F4B}
+.cover::before{content:"";width:46%;height:8px;border-radius:4px;background:#A9A69C;margin-bottom:10px}
+.compartment.open .cover{display:none}
+.hwrap{position:absolute;left:0;right:0;top:36px;bottom:46px;overflow:hidden}
+.beam{position:absolute;left:0;right:0;top:50%;border-top:2px dashed var(--signal);z-index:1;pointer-events:none}
+.beam span{position:absolute;left:6px;top:-20px;font-size:.72rem;color:var(--signal);font-weight:700}
+.holder{--pos:0;position:absolute;left:50%;top:50%;width:66px;margin-left:-33px;display:flex;flex-direction:column;gap:6px;transform:translateY(calc(-1px * (var(--pos) * 46 + 20)));transition:transform .28s ease}
+.slot{position:relative;width:66px;height:40px;border:1px solid #8E8B82;background:#B7B4AA;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.slot .sn{position:absolute;right:-18px;font-size:.72rem;color:#55584F}
+.ctop{width:26px;height:26px;border:2px solid #7F878A;background:var(--fill,transparent);display:block}
+.ctop.cuarzo{border-color:#4F7B9E;border-width:2.5px}
+.rod{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;gap:6px;padding:0 10px;border-top:1px solid var(--device-edge);font-size:.8rem}
+.rod .lbl{margin-right:auto}
+.rodb{width:30px;height:30px;border-radius:50%;border:1px solid #858279;background:#E4E2DB;cursor:pointer;padding:0;font-size:.85rem;color:var(--dev-ink)}
+.rodb.on{background:var(--dev-ink);color:var(--device)}
+
+.panel{display:flex;flex-direction:column;gap:12px;min-width:0}
+.lcd{background:var(--lcd);color:var(--lcd-ink);font-family:var(--pix);font-size:clamp(17px,2.05vw,22px);line-height:1.08;padding:9px 11px 6px;border:7px solid #2E322F;border-radius:5px;min-height:7.4em;overflow:hidden}
+.lcd.off{background:var(--lcd-off)}
+.ln{display:flex;justify-content:space-between;white-space:pre;min-height:1.08em;gap:8px}
+.soft{display:flex;justify-content:space-between;margin-top:5px;min-height:1.1em}
+.soft span{padding:0 5px}
+.soft span:not(:empty){background:var(--lcd-ink);color:var(--lcd)}
+.lcd u{text-decoration:none;background:var(--lcd-ink);color:var(--lcd)}
+.leds{display:flex;gap:16px;font-size:.8rem;align-items:center}
+.led::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#8B8B83;margin-right:6px;vertical-align:1px}
+.led.on::before{background:#3AA257}
+.led.warm::before{background:#E09E2A;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.key{background:var(--key);color:var(--key-ink);border:0;border-radius:6px;padding:9px 2px 6px;font-weight:700;font-size:.92rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.key small{font-weight:400;font-size:.66rem;opacity:.65}
+.key:active{transform:translateY(1px)}
+.base{grid-column:1 / -1;display:flex;gap:12px;align-items:center;border-top:1px solid var(--device-edge);padding-top:12px;flex-wrap:wrap}
+.power{display:flex;align-items:center;gap:8px;border:1px solid #858279;background:#E4E2DB;border-radius:6px;padding:6px 10px;cursor:pointer;color:var(--dev-ink)}
+.power i{width:12px;height:20px;border-radius:2px;background:#6D6F6A;position:relative}
+.power.on i{background:#3AA257}
+.cable{display:flex;align-items:center;gap:8px;border:1px dashed #858279;background:transparent;border-radius:6px;padding:6px 10px;cursor:pointer;color:var(--dev-ink);transition:all .2s ease}
+.cable.on{border-style:solid;background:#E4E2DB}
+.cable i{width:16px;height:12px;border:2px solid #555;border-radius:2px 2px 5px 5px;background:#8A8A82;display:inline-block;position:relative;transition:all .25s ease}
+.cable i::after{content:"";position:absolute;top:2px;left:2px;right:2px;bottom:2px;background:#6B6B63;border-radius:1px;transition:all .25s ease}
+.cable.on i{border-color:#206536;background:#3AA257;box-shadow:0 0 8px rgba(58,162,87,.7)}
+.cable.on i::after{background:#7DE49A}
+.base .ref{margin-left:auto;font-size:.74rem;color:#5d615c}
+
+.printer{display:flex;justify-content:center}
+.paper{width:min(290px,88%);background:#FBFBF6;color:#222;font-family:var(--pix);font-size:17px;line-height:1.1;padding:10px 12px 14px;border:1px solid #CFCFC8;border-top:0;white-space:pre;overflow-x:auto;margin:0}
+
+/* Bench */
+.bench{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px 18px;align-items:stretch}
+.bench h3{font-size:.86rem;font-weight:400;color:var(--muted);margin:0 0 6px}
+.rackbox,.handbox,.supbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.supbox{grid-column:1 / -1}
+@media (max-width:620px){.bench{grid-template-columns:1fr}.supbox{grid-column:1}.device{grid-template-columns:1fr;padding:14px 14px 12px}.keys{gap:7px}.leds{gap:10px;flex-wrap:wrap;font-size:.74rem}.led{white-space:nowrap}}
+.rack{display:flex;gap:6px}
+.rslot{width:38px;height:84px;border:1px dashed var(--line);background:transparent;border-radius:4px;display:flex;align-items:flex-end;justify-content:center;padding:4px 0 2px;cursor:pointer}
+.legend{font-size:.76rem;color:var(--muted);margin-top:6px}
+.cuv{--w:24px;--h:60px;position:relative;display:inline-block;width:var(--w);height:calc(var(--h) + 12px)}
+.cuv .glass{position:absolute;left:0;right:0;top:0;height:var(--h);border:1.5px solid #7F878A;border-top-width:0;background:rgba(255,255,255,.35);overflow:hidden;border-radius:0 0 2px 2px}
+.cuv.cuarzo .glass{border-color:#4F7B9E;border-width:2px}
+.cuv .glass::before,.cuv .glass::after{content:"";position:absolute;top:0;bottom:0;width:18%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.13) 0 1px,transparent 1px 3px);z-index:1}
+.cuv .glass::before{left:0}.cuv .glass::after{right:0}
+.liq{position:absolute;left:0;right:0;bottom:0}
+.mk{position:absolute;left:0;right:0;bottom:65%;height:20%;border-top:1px dashed #555;border-bottom:1px dashed #555;display:none;z-index:2}
+.cuv.big{--w:40px;--h:104px}
+.cuv.big .mk,.cuv.huge .mk{display:block}
+.cuv.huge{--w:70px;--h:190px}
+.fp{position:absolute;top:28%;left:24%;width:8px;height:8px;border-radius:50%;background:rgba(90,76,62,.45);box-shadow:7px 9px 0 rgba(90,76,62,.35);z-index:3}
+.drop{position:absolute;bottom:20px;right:-3px;width:6px;height:8px;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;background:#5C93C9;z-index:3}
+.cuv .mat{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:.64rem;line-height:1;color:var(--muted);font-weight:700}
+.cuv.cuarzo .mat{color:#2F5E84}
+.handbox{display:flex;gap:14px;align-items:center;min-height:128px}
+.handbox p{margin:0;color:var(--muted)}
+.hstate{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.hstate span{color:var(--muted);font-size:.92rem}
+.sup{display:flex;flex-wrap:wrap;gap:10px}
+.item{background:transparent;border:1px solid var(--line);border-radius:6px;padding:10px 10px 8px;min-width:98px;max-width:130px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;text-align:center;font-size:.86rem;line-height:1.2}
+.item small{color:var(--muted)}
+.bottle{width:26px;height:40px;border:1.5px solid var(--muted);border-radius:4px 4px 6px 6px;position:relative;background:linear-gradient(to top,var(--c) 62%,transparent 62%)}
+.bottle::before{content:"";position:absolute;left:7px;top:-9px;width:9px;height:8px;border:1.5px solid var(--muted);border-bottom:0}
+.wash{width:30px;height:40px;border:1.5px solid var(--muted);border-radius:10px 10px 6px 6px;position:relative;background:linear-gradient(to top,#D6E6EE 70%,transparent 70%)}
+.wash::before{content:"";position:absolute;right:-12px;top:-4px;width:16px;height:2px;background:var(--muted);transform:rotate(-30deg)}
+.tissue{width:36px;height:30px;border:1.5px solid var(--muted);background:repeating-linear-gradient(0deg,transparent 0 6px,var(--line) 6px 7px)}
+.beaker{width:34px;height:36px;border:1.5px solid var(--muted);border-top:0;border-radius:0 0 4px 4px;background:linear-gradient(to top,#C9C3B9 30%,transparent 30%)}
+
+/* Ticket */
+.ticket{background:var(--paper);border:1px solid var(--line);padding:16px 18px 18px;border-radius:6px}
+.tk-n{margin:0;color:var(--muted);font-size:.88rem}
+.ticket h2{font-size:1.25rem;margin:2px 0 6px;line-height:1.2}
+.ticket p{margin:0 0 12px}
+.ticket dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 14px;font-size:.95rem}
+.ticket dt{color:var(--muted)}
+.ticket dd{margin:0;font-weight:700}
+.res{display:flex;gap:8px;align-items:center;margin:4px 0 12px}
+.res input{width:11ch;font:inherit;font-size:1.15rem;padding:6px 8px;border:1px solid var(--muted);border-radius:4px;background:var(--surface);color:var(--ink)}
+.ticket label{font-size:.9rem;color:var(--muted)}
+.steps-header{margin:14px 0 6px;font-size:.95rem;font-weight:700;color:var(--ink);border-top:1px solid var(--line);padding-top:12px;display:flex;align-items:center;gap:6px}
+.steps{margin:0;padding:4px 0 0 1.4em;font-size:.92rem;display:flex;flex-direction:column;gap:4px}
+.steps[hidden]{display:none}
+.steps li{color:var(--muted)}
+.steps li.done{text-decoration:line-through;text-decoration-color:var(--muted);color:var(--good)}
+.steps li.now{color:var(--ink);font-weight:700}
+.btn{padding:9px 16px;border-radius:6px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;font-weight:700}
+.btn.primary{background:var(--ink);color:var(--surface)}
+.btn.small{padding:5px 10px;font-size:.88rem}
+.btn:hover{filter:brightness(.95)}
+
+/* Guide at bottom */
+.guide{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;min-height:46px}
+.guide #next{font-weight:700}
+.guide #msg{color:var(--muted)}
+.guide #msg.bad{color:var(--bad)}
+.guide #msg.ok{color:var(--good)}
+.cue{outline:3px solid var(--signal)!important;outline-offset:3px;position:relative;animation:cue-pulse 1.4s cubic-bezier(0.25,0.8,0.25,1) infinite!important}
+@keyframes cue-pulse{
+  0%{box-shadow:0 0 0 0 rgba(39,83,196,.75), 0 0 10px rgba(39,83,196,.4);outline-color:var(--signal)}
+  50%{box-shadow:0 0 0 9px rgba(39,83,196,0), 0 0 20px rgba(39,83,196,.7);outline-color:#5b87f9}
+  100%{box-shadow:0 0 0 0 rgba(39,83,196,0), 0 0 10px rgba(39,83,196,.4);outline-color:var(--signal)}
+}
+.slot.drag-over{border-color:var(--signal)!important;background:rgba(39,83,196,.2)!important;box-shadow:0 0 10px var(--signal)!important;transform:scale(1.04)}
+.rslot.drag-over{outline:2px dashed var(--signal);background:rgba(39,83,196,.12)}
+.rslot[draggable="true"],.slot[draggable="true"],#hand .cuv{cursor:grab}
+.rslot[draggable="true"]:active,.slot[draggable="true"]:active,#hand .cuv:active{cursor:grabbing}
+
+/* Overlay & Modals */
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(18,22,24,.6);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(2px)}
+.overlay[hidden]{display:none}
+.dialog{background:var(--surface);color:var(--ink);width:100%;max-width:560px;max-height:86vh;overflow:auto;border-radius:10px;border:1px solid var(--line);padding:22px 24px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
+.dialog h2{margin:0 0 8px;font-size:1.35rem;line-height:1.2}
+.dialog p{margin:0 0 12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.score{font-size:1.05rem}
+.score b{font-size:2rem}
+.fails{padding-left:1.1em;margin:8px 0 0}
+.fails li{margin-bottom:6px}
+.fails em{font-style:normal;color:var(--muted)}
+.fails b{color:var(--bad);white-space:nowrap}
+.keylist{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 12px}
+.keylist dt{font-weight:700}
+.keylist dd{margin:0}
+.sumt{width:100%;border-collapse:collapse;margin-top:8px}
+.sumt td{padding:6px 0;border-bottom:1px solid var(--line)}
+.sumt td:last-child{text-align:right;font-weight:700}
+.pourwrap{display:flex;gap:22px;align-items:flex-end;justify-content:center;margin:10px 0 4px}
+.pourmarks{font-size:.82rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.holdbtn{touch-action:none;user-select:none;-webkit-user-select:none}
+
+/* Toast Notification System */
+.toast-container{position:fixed;top:16px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(400px,92vw)}
+.toast{pointer-events:auto;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-left:5px solid var(--signal);box-shadow:0 5px 16px rgba(0,0,0,0.14);border-radius:6px;padding:10px 14px;font-size:.88rem;display:flex;align-items:flex-start;gap:10px;opacity:0;transform:translateY(-12px);animation:toastIn .25s forwards cubic-bezier(.16,1,.3,1);transition:opacity .25s,transform .25s}
+.toast.toast-done,.toast.toast-good{border-left-color:var(--good)}
+.toast.toast-warn,.toast.toast-bad{border-left-color:var(--bad)}
+.toast.toast-edu{border-left-color:#8A3E86}
+@keyframes toastIn{to{opacity:1;transform:translateY(0)}}
+.toast.toast-hiding{opacity:0;transform:translateY(-8px)}
+.toast-icon{display:none}
+.toast-content{flex:1}
+.toast-title{font-weight:700;margin-bottom:2px;color:var(--ink)}
+.toast-desc{color:var(--muted);font-size:.82rem;line-height:1.35}
+
+/* Educational Cards */
+.edu-dialog{max-width:680px;border-radius:12px}
+.edu-tag{display:inline-block;background:rgba(39,83,196,.12);color:var(--signal);font-size:.76rem;font-weight:700;padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.edu-header h2{font-size:1.3rem;margin:0 0 12px;line-height:1.25}
+.edu-body{font-size:.92rem;line-height:1.5;color:var(--ink);display:flex;flex-direction:column;gap:12px}
+.edu-section{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.edu-section h3{font-size:.96rem;margin:0 0 6px;color:var(--ink)}
+.edu-section p{margin:0 0 6px}
+.edu-section p:last-child{margin-bottom:0}
+.edu-section ul,.edu-section ol{margin:6px 0 0;padding-left:1.3em}
+.edu-section li{margin-bottom:4px}
+.edu-highlight{background:rgba(242,230,162,.35);border:1px solid #D6C779;border-radius:6px;padding:10px 14px;font-size:.9rem}
+.edu-compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:560px){.edu-compare-grid{grid-template-columns:1fr}}
+.compare-card{padding:10px 12px;border-radius:6px;font-size:.86rem}
+.compare-card.bad{background:rgba(174,54,41,.08);border:1px solid rgba(174,54,41,.25)}
+.compare-card.good{background:rgba(45,119,72,.08);border:1px solid rgba(45,119,72,.25)}
+.compare-card h4{margin:0 0 4px;font-size:.9rem;color:var(--bad)}
+.compare-card.good h4{color:var(--good)}
+.cuv-visual-box{display:flex;justify-content:center;align-items:center;gap:20px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px}
+.cuv-face-demo{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.face-tag{padding:8px 12px;border-radius:6px;font-size:.84rem;text-align:center}
+.face-tag.frost{background:#E8ECE9;border:2px dashed #7F878A;color:var(--ink)}
+.face-tag.clear{background:rgba(127,162,255,.15);border:2px solid var(--signal);color:var(--signal)}
+.btn-guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-top:10px}
+.btn-guide-item{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:.86rem;display:flex;flex-direction:column;gap:4px}
+.btn-guide-badge{align-self:flex-start;background:var(--key);color:var(--key-ink);font-weight:700;font-size:.82rem;padding:3px 8px;border-radius:4px}
+.btn-guide-badge small{opacity:.7;font-weight:normal;margin-left:4px}
+.edu-menu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px}
+.edu-menu-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;text-align:left;transition:all .15s}
+.edu-menu-card:hover{border-color:var(--signal);transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.08)}
+.edu-menu-card strong{font-size:.95rem;color:var(--signal)}
+.edu-menu-card p{margin:0;font-size:.84rem;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){
+  .cue{animation:none}.led.warm::before{animation:none}.holder{transition:none}.toast{animation:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Espectrofotómetro Lan-Optics</h1>
+  <span class="prog" id="prog"></span>
+  <span class="sp"></span>
+  <div class="top-nav-links">
+    <button class="linkbtn" data-act="buttons-guide">Guía de botones</button>
+    <button class="linkbtn" data-act="edu-menu">Conceptos clave</button>
+    <button class="linkbtn" data-act="help">Teclas y normas</button>
+    <label><input type="checkbox" id="guided"> Ayudas paso a paso</label>
+  </div>
+</header>
+
+<main class="lab">
+  <!-- Cartel de Instrucciones destacado en la parte superior -->
+  <section class="cartel-inst" id="cartel-inst" aria-label="Cartel de Instrucciones">
+    <div class="cartel-bar">
+      <div class="cartel-tag">
+        INSTRUCCIONES DE LABORATORIO
+      </div>
+      <div class="cartel-prog" id="cartel-prog">Paso 1 de 13</div>
+      <button class="cartel-toggle-btn" id="btn-toggle-steps" type="button">
+        <span id="btn-toggle-steps-text">Ver todos los pasos (13) ▼</span>
+      </button>
+    </div>
+    <div class="cartel-active-step">
+      <div class="cartel-num" id="cartel-num">1</div>
+      <div class="cartel-info">
+        <div class="cartel-title" id="cartel-title">Conecta el cable de red a la toma (220 V)</div>
+        <div class="cartel-desc" id="cartel-desc">Haz clic en el cable Schuko en la base del equipo para conectarlo a la toma de corriente.</div>
+      </div>
+    </div>
+    <div class="cartel-all-steps" id="cartel-all-steps" hidden></div>
+  </section>
+
+  <section class="rig" aria-label="Espectrofotómetro">
+    <div class="device" id="device">
+      <button type="button" class="note" id="note" data-act="edu-dark" title="Haz clic para ver por qué es importante">
+        Nota: Movido de mesa esta mañana <span class="note-sub">(¿Por qué? Clic aquí)</span>
+      </button>
+      <div class="brand"><b>LAN-OPTICS</b><span>UV-Vis 200–1000 nm</span></div>
+      <div class="compartment" id="compartment">
+        <button class="lid" id="lid" data-act="lid">Abrir tapa</button>
+        <div class="hwrap">
+          <div class="beam"><span>haz de luz</span></div>
+          <div class="holder" id="holder"></div>
+        </div>
+        <div class="cover" id="cover"></div>
+        <div class="rod" id="rod"></div>
+      </div>
+      <div class="panel">
+        <div class="lcd off" id="lcd" aria-live="off"></div>
+        <div class="leds"><span class="led" id="led-w">Lámpara W</span><span class="led" id="led-d2">Lámpara D₂</span></div>
+        <div class="keys">
+          <button class="key" id="k-f1" data-key="f1">F1<small>2.5</small></button>
+          <button class="key" id="k-up" data-key="up">▲<small>2.7</small></button>
+          <button class="key" id="k-down" data-key="down">▼<small>2.8</small></button>
+          <button class="key" id="k-f2" data-key="f2">F2<small>2.6</small></button>
+          <button class="key" id="k-goto" data-key="goto">GOTOλ<small>2.1</small></button>
+          <button class="key" id="k-zero" data-key="zero">ZERO<small>2.2</small></button>
+          <button class="key" id="k-set" data-key="set">SET<small>2.3</small></button>
+          <button class="key" id="k-print" data-key="print">PRINT<small>2.4</small></button>
+        </div>
+      </div>
+      <div class="base">
+        <button class="power" id="power" data-act="power"><i></i>On/Off <small>1.4</small></button>
+        <button class="cable" id="cable" data-act="cable"><i></i><span>Cable desconectado</span></button>
+        <span class="ref">220 V, 50 Hz</span>
+      </div>
+    </div>
+    <div class="printer"><pre class="paper" id="printout" hidden></pre></div>
+  </section>
+
+  <section class="bench" aria-label="Mesa de trabajo">
+    <div class="rackbox">
+      <h3>Gradilla de cubetas</h3>
+      <div class="rack" id="rack"></div>
+      <div class="legend">V: Vidrio (visible) | Q: Cuarzo (ultravioleta UV)</div>
+    </div>
+    <div class="handbox" id="hand"></div>
+    <div class="supbox">
+      <h3>Material y reactivos</h3>
+      <div class="sup" id="sup"></div>
+    </div>
+  </section>
+
+  <aside class="ticket" id="ticket" aria-label="Pedido"></aside>
+</main>
+
+<div class="guide" role="status"><span id="next"></span><span id="msg"></span></div>
+
+<div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+<!-- Overlay genérico para inicio, resultado y normas -->
+<div class="overlay" id="ov"><div class="dialog" id="ovd"></div></div>
+
+<!-- Overlay didáctico para conceptos de laboratorio -->
+<div class="overlay" id="edu-ov" hidden><div class="dialog edu-dialog" id="edu-d"></div></div>
+
+<div class="overlay" id="grip" hidden>
+  <div class="dialog">
+    <h2>¿Por dónde coges la cubeta?</h2>
+    <p>Tiene dos caras esmeriladas (estriadas / mates) y dos caras transparentes (ópticas y lisas).</p>
+    <div class="row">
+      <button class="btn primary" data-act="grip-frost">Por las caras esmeriladas</button>
+      <button class="btn" data-act="grip-clear">Por las caras transparentes</button>
+      <button class="btn" data-act="grip-cancel">Dejarla</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="pour" hidden>
+  <div class="dialog">
+    <h2 id="pour-t">Llenar la cubeta</h2>
+    <p>Mantén pulsado para verter disolución. Suelta cuando el nivel quede entre la marca inferior (mínimo 65%) y superior (máximo 85%).</p>
+    <div class="pourwrap">
+      <div id="pour-cuv"></div>
+      <div class="pourmarks"><span>Marca superior: máximo (85%)</span><span>Marca inferior: mínimo (65%)</span><span id="pour-lv"></span></div>
+    </div>
+    <div class="row">
+      <button class="btn primary holdbtn" id="pour-hold">Mantén para verter</button>
+      <button class="btn" data-act="pour-done">Hecho</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const rnd = (a,b) => a + Math.random()*(b-a);
+const gauss = () => { let u=0,v=0; while(!u) u=Math.random(); while(!v) v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+const now = () => performance.now();
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const SELFTEST_MS = 4000, WARM_MS = 20000, D2_WARM_MS = 12000, FILL_MIN = 65, FILL_MAX = 85;
+const LABEL = {blanco:'blanco', estandar:'estándar', muestra:'muestra', mezcla:'mezcla', antigua:'restos anteriores'};
+const DEL = {blanco:'del blanco', estandar:'del estándar', muestra:'de la muestra'};
+const ART = {blanco:'el blanco', estandar:'el estándar', muestra:'la muestra'};
+const MODE_NAME = {basic:'Básico (Basic)', quant:'Cuantitativo (Quantitative)'};
+const CATS = ['Puesta en marcha','Configuración','Cubetas','Medida','Resultado','Cierre'];
+
+/* Un único caso exhaustivo que reúne todos los aprendizajes */
+function makeOrders(){
+  return [
+    {
+      n: 1,
+      title: 'Permanganato potásico (KMnO₄)',
+      brief: 'Determinación espectrofotométrica de rutina: mide la absorbancia de una muestra de permanganato potásico a 525 nm frente a agua destilada. Requiere estabilizar la lámpara de tungsteno, calibrar el Dark Current por el cambio de mesa, usar cubetas de vidrio óptico, ajustar el blanco y registrar el resultado.',
+      mode: 'basic',
+      wl: 525,
+      lmax: 525,
+      width: 45,
+      k: 1.0,
+      cM: +rnd(0.48, 0.76).toFixed(3),
+      blankA: 0.000,
+      unit: 'Abs',
+      mat: 'vidrio',
+      kinds: ['blanco', 'muestra'],
+      bottles: [
+        {kind: 'blanco', name: 'Agua destilada (Blanco)'},
+        {kind: 'muestra', name: 'Muestra de KMnO₄'}
+      ],
+      colors: {blanco: '#D9E6EA', muestra: '#8A3E86'},
+      needDark: true,
+      needPrint: true,
+      tol: 0.015
+    }
+  ].map(o => Object.assign(o, {flags:{}, pens:{}, snap:null, done:false, score:null, answer:null}));
+}
+
+function newState(guided){
+  const cuvs = [];
+  // 3 de vidrio y 3 de cuarzo en la gradilla
+  for (let i=0;i<6;i++) cuvs.push({
+    id: i,
+    mat: i < 3 ? 'vidrio' : 'cuarzo',
+    clean: false, ever: false, wet: false, prints: 0, content: null, level: 0, last: null, contam: false, dirty: false, used: false, bias: rnd(-0.002, 0.002)
+  });
+  return {
+    guided, orders:makeOrders(), oi:0, plugged:false, power:false, phase:'off', phaseEnd:0, screen:'off', ret:'main', cursor:0,
+    wl:546, gotoVal:546, testMode:'Abs', d2:false, d2WarmUntil:0, w:true, darkNeeded:true, warmSkipped:false,
+    I0:1, zero:{wl:546, kind:'aire'}, lid:'closed', pos:0, slots:[null,null,null,null], rack:cuvs.slice(), cuvs, hand:null,
+    rows:[], quant:{digits:[0,0,0,0,0], di:0, factor:0, cStd:0}, printout:null, timer:0, zeroRet:'main', zeroWhy:'', pending:null, pour:null, ticketKey:'',
+    eduSeen: { lamp: false, dark: false, buttons: false, uv: false, grip: false, pour: false, paper: false, slot: false, quant: false }
+  };
+}
+let S = null;
+const cur = () => S.orders[S.oi];
+const F = () => cur().flags;
+
+/* ---------- Toast Notification System (Retroalimentación visual en pantalla) ---------- */
+function notify(title, desc, type='info'){
+  const container = $('#toast-container');
+  if (!container) return;
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `
+    <div class="toast-content">
+      <div class="toast-title">${esc(title)}</div>
+      ${desc ? `<div class="toast-desc">${esc(desc)}</div>` : ''}
+    </div>
+  `;
+  container.appendChild(t);
+  setTimeout(() => {
+    t.classList.add('toast-hiding');
+    setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 260);
+  }, 3800);
+}
+
+let msgT = null;
+function msg(text, tone){
+  const el = $('#msg'); if (!el) return;
+  el.textContent = text; el.className = tone || '';
+  clearTimeout(msgT); msgT = setTimeout(() => { el.textContent=''; el.className=''; }, 5500);
+}
+
+function pen(key, cat, text, pts){
+  const o = cur(); if (o.done || o.pens[key]) return;
+  o.pens[key] = {cat, text, pts};
+  notify('Penalización: ' + cat, text + ' (−' + pts + ' pts)', 'bad');
+  if (S.guided) msg('Fallo: ' + text + '.', 'bad');
+}
+
+/* ---------- Physics ---------- */
+function gshape(o, wl){ return Math.exp(-((wl-o.lmax)**2)/(2*o.width**2)); }
+function solA(kind, wl){
+  const o = cur();
+  if (kind==='antigua') return 0.35;
+  if (kind==='mezcla') return o.blankA + 0.25;
+  if (kind==='blanco') return o.blankA;
+  if (kind==='estandar') return o.blankA + o.k*(o.cStd||1)*gshape(o,wl);
+  if (kind==='muestra') return o.blankA + o.k*o.cM*gshape(o,wl);
+  return 0;
+}
+function truth(o){ return o.mode==='quant' ? o.cM : o.k*o.cM*gshape(o,o.wl); }
+function matA(m, wl){
+  if (m==='cuarzo') return 0.03;
+  if (wl<320) return 3.4; // El vidrio bloquea totalmente la luz ultravioleta
+  if (wl<350) return 0.04 + 3.36*(350-wl)/30;
+  return 0.04;
+}
+function lampL(wl){ return 0.3 + 0.18*Math.sin(wl/41) + 0.07*Math.cos(wl/17); }
+function d2Progress(){ return S.d2 ? clamp(1-(S.d2WarmUntil-now())/D2_WARM_MS, 0, 1) : 0; }
+const beam = () => S.slots[S.pos];
+function beamKind(){ const c = beam(); return c ? (c.content || 'vacía') : 'aire'; }
+function rawI(){
+  const wl = S.wl, c = beam();
+  let A = 0;
+  if (c){
+    A += matA(c.mat, wl) + c.bias;
+    if (c.content) A += c.level>=FILL_MIN ? solA(c.content, wl) : solA(c.content, wl)*0.04;
+    A += c.prints*0.035 + (c.wet?0.025:0) + (c.dirty?0.02:0) + (c.contam?0.05:0);
+  }
+  let E = Math.pow(10, -lampL(wl));
+  if (wl<340){ E *= S.d2 ? (0.55 + 0.45*d2Progress()) : 0.0004; }
+  else if (!S.w) E *= 0.0004;
+  let I = E*Math.pow(10, -A);
+  if (S.darkNeeded) I += 0.012;
+  if (S.lid==='open') I += 0.3;
+  return I + gauss()*0.00035;
+}
+function avgI(){ let s=0; for (let i=0;i<10;i++) s += rawI(); return Math.max(s/10, 1e-7); }
+function drift(){
+  const t = now(); let d = 0;
+  if (S.warmSkipped) d += 0.006 + 0.02*Math.sin(t/3800);
+  if (S.wl<340 && S.d2 && d2Progress()<1) d += 0.04*(1-d2Progress())*Math.sin(t/1300);
+  return d;
+}
+function reading(){
+  const I = rawI();
+  const A = clamp(-Math.log10(Math.max(I,1e-7)/Math.max(S.I0,1e-7)) + drift(), -0.3, 3);
+  return {A, T:clamp(100*Math.pow(10,-A), 0, 125), I};
+}
+function snap(mode){
+  const c = beam();
+  return {
+    mode, wl:S.wl, zeroWl:S.zero.wl, zeroKind:S.zero.kind, lid:S.lid==='open',
+    lampOk: S.wl<340 ? S.d2 : S.w, d2Warming: S.wl<340 && S.d2 && d2Progress()<1,
+    glassUV: S.wl<340 && !!c && c.mat==='vidrio', lowFill: !c || c.level<FILL_MIN,
+    prints: c ? c.prints : 0, wet: c ? c.wet : false
+  };
+}
+const fmtA = A => (A<0?'-':' ') + Math.abs(A).toFixed(3);
+
+/* ---------- Instrument logic ---------- */
+function togglePower(){
+  if (!S.plugged){
+    notify('Equipo sin corriente', 'Conecta primero el cable Schuko a la toma eléctrica.', 'warn');
+    msg('El equipo no responde. Comprueba el cable de red.');
+    return;
+  }
+  if (S.power){
+    S.power=false; S.phase='off'; S.screen='off'; S.d2=false;
+    notify('Equipo apagado', 'Espectrofotómetro desconectado.', 'info');
+  } else {
+    Object.assign(S, {power:true, phase:'selftest', phaseEnd:now()+SELFTEST_MS, screen:'selftest', d2:false, w:true, testMode:'Abs', wl:546, rows:[]});
+    notify('Equipo encendido', 'Iniciando autochequeo óptico inicial (Self test)...', 'good');
+  }
+}
+function toggleCable(){
+  S.plugged = !S.plugged;
+  if (!S.plugged && S.power){
+    S.power=false; S.phase='off'; S.screen='off'; S.d2=false;
+    notify('Cable desconectado', 'Has desconectado el cable con el equipo encendido.', 'warn');
+  } else if (S.plugged){
+    notify('Cable conectado', 'Espectrofotómetro enchufado a la red eléctrica (220 V, 50 Hz).', 'good');
+  } else {
+    notify('Cable desconectado', 'Equipo aislado de la toma de corriente.', 'info');
+  }
+}
+function toggleLid(){
+  if (S.lid==='closed'){
+    S.lid = 'open';
+    notify('Tapa abierta', 'Compartimento de muestras accesible. Recuerda cerrarla antes de medir.', 'info');
+    if (S.phase==='selftest') pen('lidself','Puesta en marcha','Se abrió el compartimento durante el autochequeo',10);
+  } else {
+    S.lid = 'closed';
+    notify('Tapa cerrada', 'Compartimento aislado herméticamente de la luz.', 'good');
+  }
+}
+function finishWarm(skipped){
+  S.phase='ready'; S.screen='main'; S.I0=avgI(); S.zero={wl:S.wl, kind:beamKind()};
+  if (skipped){
+    S.warmSkipped=true;
+    pen('warm','Puesta en marcha','Se saltó el calentamiento de 20 minutos, así que las lecturas derivan',15);
+    notify('Calentamiento saltado', 'Lámpara sin estabilizar del todo (ligera deriva térmica).', 'warn');
+  } else {
+    S.warmSkipped=false;
+    notify('Calentamiento finalizado', 'Lámpara y fotodetector estabilizados correctamente.', 'good');
+  }
+}
+function startZero(ret, why){
+  S.zeroRet=ret; S.zeroWhy=why; S.screen='zeroing'; S.timer=now()+1200;
+  notify('Ajustando cero', 'Calibrando referencia espectral (100.0% T)...', 'info');
+}
+function endZero(){
+  const o = cur();
+  S.I0 = avgI(); S.zero = {wl:S.wl, kind:beamKind()};
+  if (S.zero.kind!=='blanco') pen('zerokind','Medida','Se hizo el blanco sin la cubeta del blanco en el haz',10);
+  if (S.lid==='open') pen('zerolid','Medida','Se hizo el blanco con la tapa abierta',8);
+  const good = S.zero.kind==='blanco' && S.lid==='closed' && S.wl===o.wl;
+  if (good){
+    if (S.zeroWhy==='basic' || (S.zeroWhy==='zero' && (S.zeroRet==='basic' || S.zeroRet==='main'))) F().basicZero = true;
+    if (S.zeroWhy==='qblank') F().qBlank = true;
+    if (S.zeroWhy==='zero' && S.zeroRet==='quant_run') F().qZero = true;
+    notify('Blanco completado', 'Transmitancia calibrada al 100.0% T (0.000 Abs).', 'good');
+  }
+  if (S.zeroRet==='quant_std'){ S.quant.digits=[0,0,0,0,0]; S.quant.di=0; }
+  S.screen = S.zeroRet;
+}
+function finalizeStd(){
+  const o = cur(), q = S.quant;
+  const val = parseFloat(q.digits[0] + '.' + q.digits.slice(1).join(''));
+  let A = 0; for (let i=0;i<8;i++) A += reading().A; A /= 8;
+  q.cStd = val; q.factor = A>0.005 ? val/A : 0;
+  const bk = beamKind();
+  if (bk!=='estandar') pen('stdbeam','Medida','Al confirmar el estándar no estaba la cubeta del estándar en el haz',15);
+  if (Math.abs(val-o.cStd)>1e-9) pen('stdconc','Configuración','Se introdujo ' + val.toFixed(4).replace('.',',') + ' como concentración del estándar y era ' + o.cStd.toFixed(4).replace('.',','),15);
+  if (S.lid==='open') pen('lidmeas','Medida','Se midió con la tapa abierta',8);
+  if (bk==='estandar' && Math.abs(val-o.cStd)<1e-9 && S.lid==='closed' && S.wl===o.wl){
+    F().qStd = true;
+    notify('Estándar calibrado', 'Factor de calibración calculado con éxito (Conc: 1,0000 mg/mL).', 'good');
+  }
+  S.screen = 'quant_run';
+}
+function doPrint(){
+  const o = cur(), L = ['Lan-Optics UV-Vis', 'Práctica de Laboratorio', esc(o.title), ''];
+  const r = reading();
+  if (o.mode === 'quant') {
+    const conc = (r.A * S.quant.factor).toFixed(4);
+    L.push('Quantitative Mode', 'WL:   ' + S.wl.toFixed(1) + ' nm', 'Std:  ' + S.quant.cStd.toFixed(4) + ' ' + o.unit, 'Abs:  ' + fmtA(r.A), 'Conc: ' + conc + ' ' + o.unit);
+  } else {
+    L.push('Basic Mode (Abs)', 'WL:   ' + S.wl.toFixed(1) + ' nm', 'T%:   ' + r.T.toFixed(1) + ' %', 'Abs:  ' + fmtA(r.A) + ' Abs');
+  }
+  S.printout = L.join('\\n');
+  F().printed = true;
+  notify('Impresión generada', 'Tira de papel impresa con el registro analítico.', 'good');
+}
+
+function key(k, mult){
+  if (!S.power || S.phase==='selftest' || S.phase==='off') return;
+  if (S.phase==='warmup'){ finishWarm(true); renderAll(); return; }
+  const sc = S.screen;
+  if (['zeroing','dark','resetwl'].includes(sc)) return;
+  if (sc==='version'){ S.screen='set'; renderAll(); return; }
+  const meas = ['main','quant_run'];
+  switch (k){
+    case 'goto': if (meas.includes(sc)){ S.ret=sc; S.gotoVal=Math.round(S.wl); S.screen='goto'; } break;
+    case 'zero': if (meas.includes(sc)) startZero(sc,'zero'); break;
+    case 'set': if (sc==='main'){ S.screen='set'; S.cursor=0; } break;
+    case 'print': if (['main','basic','quant_run'].includes(sc)){ S.ret=sc; S.screen='print'; S.cursor=0; } break;
+    case 'up': arrow(1, mult||1); break;
+    case 'down': arrow(-1, mult||1); break;
+    case 'f1': f1(); break;
+    case 'f2': f2(); break;
+  }
+  renderAll();
+}
+function arrow(dir, mult){
+  const sc = S.screen;
+  const n = {set:6, testmode:3, d2:2, w:2, print:3}[sc];
+  if (sc==='goto') S.gotoVal = clamp(S.gotoVal + dir*mult, 200, 1000);
+  else if (n) S.cursor = clamp(S.cursor - dir, 0, n-1);
+  else if (sc==='quant_std'){ const q=S.quant; q.digits[q.di] = (q.digits[q.di] + dir + 10) % 10; }
+}
+function f1(){
+  const sc = S.screen;
+  if (sc==='main') startZero('basic','basic');
+  else if (sc==='basic'){
+    const r = reading();
+    S.rows.push({no:S.rows.length+1, wl:S.wl, T:r.T, A:r.A});
+    if (S.rows.length>200) S.rows.shift();
+    if (beamKind()==='muestra'){
+      cur().snap = snap('basic');
+      F().test = true;
+      notify('Medida registrada', 'Absorbancia de la muestra: ' + fmtA(r.A) + ' Abs (' + r.T.toFixed(1) + ' %T).', 'good');
+    } else {
+      notify('Posición incorrecta', 'Para registrar la muestra debes llevar la cubeta de la muestra al haz (tirador pos. 2).', 'warn');
+    }
+  }
+  else if (sc==='goto'){
+    S.wl = S.gotoVal;
+    if (S.wl===cur().wl) F().wlOk = true;
+    notify('Longitud de onda fijada', 'Configurada a ' + S.wl + ' nm.', 'good');
+    S.screen = S.ret;
+  }
+  else if (sc==='set'){
+    const i = S.cursor;
+    if (i===0){ S.screen='testmode'; S.cursor=['Abs','T%','Energy'].indexOf(S.testMode); }
+    else if (i===1){ S.screen='d2'; S.cursor=S.d2?0:1; }
+    else if (i===2){ S.screen='w'; S.cursor=S.w?0:1; }
+    else if (i===3){
+      S.screen='dark'; S.timer=now()+2500;
+      notify('Obteniendo Dark Current', 'Midiendo corriente de oscuridad en ausencia total de luz (0% T)...', 'info');
+    }
+    else if (i===4){ S.screen='resetwl'; S.timer=now()+2500; }
+    else S.screen='version';
+  }
+  else if (sc==='testmode') S.testMode = ['Abs','T%','Energy'][S.cursor];
+  else if (sc==='d2'){
+    const on = S.cursor===0;
+    if (on && !S.d2){
+      S.d2=true; S.d2WarmUntil=now()+D2_WARM_MS;
+      notify('Lámpara D₂ encendida', 'Lámpara de deuterio iniciada. Espera unos segundos a que se estabilice.', 'good');
+    }
+    if (!on) S.d2=false;
+  }
+  else if (sc==='w') S.w = S.cursor===0;
+  else if (sc==='quant_blank') startZero('quant_std','qblank');
+  else if (sc==='quant_std'){
+    S.quant.di++;
+    if (S.quant.di>=5) finalizeStd();
+    else notify('Dígito fijado', 'Ajusta el siguiente dígito con ▲/▼ y confirma con Ok (F1).', 'info');
+  }
+  else if (sc==='print'){
+    if (S.cursor===0){ doPrint(); S.rows=[]; }
+    else if (S.cursor===1) S.rows=[];
+    S.screen = S.ret;
+  }
+}
+function f2(){
+  const sc = S.screen;
+  if (sc==='main'){
+    S.screen='quant_blank'; F().qStart=true;
+    notify('Modo cuantitativo', 'Inserta la cubeta del blanco en el haz y pulsa Ok (F1).', 'info');
+  }
+  else if (sc==='goto' || sc==='print') S.screen = S.ret;
+  else if (sc==='set') S.screen='main';
+  else if (sc==='testmode' || sc==='d2' || sc==='w') S.screen='set';
+  else if (['basic','quant_blank','quant_std','quant_run'].includes(sc)) S.screen='main';
+}
+
+/* ---------- Bench logic ---------- */
+function needHand(){ notify('Mano libre', 'Coge primero una cubeta de la gradilla para manipularla.', 'warn'); }
+function askGrip(c, from, i){
+  if (!S.eduSeen.grip){
+    S.eduSeen.grip = true;
+    S.pendingGrip = {c, from, i};
+    showEdu('grip');
+    return;
+  }
+  S.pending = {c, from, i};
+  $('#grip').hidden = false;
+  const b = $('#grip .btn'); if (b) b.focus();
+}
+function gripChoose(clear){
+  const p = S.pending; $('#grip').hidden = true; S.pending = null;
+  if (!p || clear===null) return;
+  if (p.from==='rack') S.rack[p.i] = null; else S.slots[p.i] = null;
+  S.hand = p.c;
+  if (clear){
+    p.c.prints++;
+    pen('grip','Cubetas','Se cogió una cubeta por las caras transparentes y las huellas quedan en el paso de la luz',4);
+    notify('¡Cuidado con las huellas!', 'Has tocado las caras ópticas. Deberás secarlas y limpiarlas con celulosa.', 'bad');
+  } else {
+    notify('Cubeta sujeta', '¡Excelente! Sujetada por las caras esmeriladas para proteger la óptica.', 'good');
+  }
+}
+function rackClick(i){
+  const c = S.rack[i];
+  if (S.hand){
+    if (!c){
+      S.rack[i] = S.hand;
+      notify('Cubeta en gradilla', 'Cubeta depositada en el hueco ' + (i+1) + ' de la gradilla.', 'info');
+      S.hand = null;
+    } else notify('Hueco ocupado', 'Ese hueco de la gradilla ya contiene una cubeta.', 'warn');
+  }
+  else if (c) askGrip(c, 'rack', i);
+}
+function returnHand(){
+  if (!S.hand) return;
+  const idx = S.rack.indexOf(null);
+  if (idx>=0){
+    S.rack[idx] = S.hand;
+    notify('Cubeta devuelta', 'Cubeta colocada en la gradilla.', 'info');
+    S.hand = null;
+  }
+}
+function slotClick(i){
+  if (S.lid!=='open'){
+    notify('Tapa cerrada', 'Abre la tapa del compartimento para acceder al portacubetas.', 'warn');
+    return;
+  }
+  const c = S.slots[i];
+  if (S.hand){
+    if (c){ notify('Posición ocupada', 'La posición ' + (i+1) + ' ya tiene una cubeta.', 'warn'); return; }
+    if (!S.eduSeen.slot){
+      S.eduSeen.slot = true;
+      S.pendingSlot = i;
+      showEdu('slot');
+      return;
+    }
+    const h = S.hand;
+    if (h.wet || h.prints) pen('dirtyplace','Cubetas','Se colocó una cubeta con gotas o huellas. Hay que secarla con papel de celulosa antes',5);
+    S.slots[i] = h; S.hand = null;
+    notify('Cubeta insertada', 'Cubeta colocada en la posición ' + (i+1) + ' del portacubetas.', 'good');
+  } else if (c) askGrip(c, 'slot', i);
+}
+function wash(){
+  const h = S.hand; if (!h) return needHand();
+  if (h.content){ notify('Cubeta con líquido', 'Vacía antes la cubeta en el vaso de residuos.', 'warn'); return; }
+  Object.assign(h, {clean:true, ever:true, wet:true, last:null, contam:false, dirty:false});
+  notify('Cubeta enjuagada', 'Lavada con agua destilada. Seca el exterior con celulosa antes de usarla.', 'good');
+}
+function dry(){
+  const h = S.hand;
+  if (!S.eduSeen.paper){
+    showEdu('paper');
+    S.eduSeen.paper = true;
+  }
+  if (!h) return needHand();
+  h.wet = false; h.prints = 0;
+  notify('Cubeta secada', 'Exterior seco y caras transparentes limpias con papel de celulosa.', 'good');
+}
+function waste(){
+  const h = S.hand; if (!h) return needHand();
+  if (!h.content){ notify('Cubeta vacía', 'La cubeta ya está vacía.', 'info'); return; }
+  Object.assign(h, {last:h.content, content:null, level:0, clean:false, contam:false, dirty:false});
+  notify('Cubeta vaciada', 'Residuo depositado en el vaso. Enjuágala con agua destilada.', 'info');
+}
+function openPour(kind){
+  if (!S.hand) return needHand();
+  if (S.hand.level>=100){ notify('Cubeta llena', 'La cubeta ya está al máximo de su capacidad.', 'warn'); return; }
+  if (!S.eduSeen.pour){
+    S.eduSeen.pour = true;
+    S.pendingPour = kind;
+    showEdu('pour');
+    return;
+  }
+  S.pour = {kind, applied:false};
+  $('#pour-t').textContent = 'Llenar con ' + bottleName(kind);
+  renderPour(); $('#pour').hidden = false; $('#pour-hold').focus();
+}
+function pourStep(amount){
+  const c = S.hand, p = S.pour; if (!c || !p) return;
+  if (!p.applied){
+    p.applied = true;
+    if (c.content && c.content!==p.kind){ c.content='mezcla'; pen('mix','Cubetas','Se mezclaron dos disoluciones en la misma cubeta',10); }
+    else if (!c.content){
+      if (!c.ever){ c.dirty=true; pen('norinse','Cubetas','Se usó una cubeta sin enjuagarla antes con agua destilada',5); }
+      if (!c.clean && c.last && c.last!==p.kind){ c.contam=true; pen('carry','Cubetas','Se llenó una cubeta con restos de otra disolución sin enjuagarla',10); }
+      c.content = p.kind;
+    }
+    c.used = true; c.clean = false;
+  }
+  c.level += amount;
+  if (c.level>100){
+    c.level=100; c.wet=true; stopPour();
+    pen('spill','Cubetas','Se llenó la cubeta hasta derramar',5);
+    notify('¡Derrame de líquido!', 'Se ha derramado por fuera. Deberás secarla muy bien antes de meterla al equipo.', 'bad');
+  }
+  renderPour();
+}
+let pourT = null;
+function stopPour(){ clearInterval(pourT); pourT = null; }
+function bottleName(kind){ const b = cur().bottles.find(x => x.kind===kind); return b ? b.name : LABEL[kind]; }
+function colorOf(kind){ if (!kind) return 'transparent'; const o = cur(); return (o.colors && o.colors[kind]) || {mezcla:'#B48DA6', antigua:'#C8C1CE'}[kind] || '#DDD'; }
+
+/* ---------- Delivery and evaluation ---------- */
+function deliver(){
+  const o = cur(); if (o.done) return;
+  const v = parseFloat(($('#result').value || '').trim().replace(',', '.'));
+  if (!isFinite(v)){ notify('Falta el resultado', 'Escribe el valor de absorbancia obtenido antes de entregar.', 'warn'); $('#result').focus(); return; }
+  const s = o.snap;
+  if (!s) pen('nosnap','Medida','No se registró ninguna medida de la muestra en el equipo',20);
+  else {
+    if (s.mode!=='basic') pen('mode','Configuración','Se usó el modo ' + MODE_NAME[s.mode] + ' en lugar del modo Básico (Absorbancia)',15);
+    if (Math.abs(s.wl-525)>0.5) pen('wl','Configuración','La muestra se midió a ' + s.wl + ' nm en lugar de 525 nm',15);
+    if (!s.lampOk) pen('lamp','Configuración','La lámpara de tungsteno (W) estaba apagada',15);
+    if (s.lowFill) pen('fill','Cubetas','La cubeta tenía poco volumen y el haz pasaba por encima del menisco',8);
+    if (s.prints) pen('prints','Cubetas','La cubeta tenía huellas en las caras ópticas al medir',10);
+    if (s.wet) pen('wet','Cubetas','La cubeta tenía gotas de líquido en el exterior al medir',8);
+  }
+  if (o.needDark && S.darkNeeded) pen('dark','Puesta en marcha','El equipo se había movido de mesa y no se calibró el Dark current',10);
+  if (!o.flags.basicZero) pen('zero','Medida','No se ajustó el blanco a 0.000 Abs con la cubeta del blanco en el haz',15);
+  if (o.needPrint && !o.flags.printed) pen('print','Medida','No se imprimió el registro analítico con PRINT',5);
+
+  const t = truth(o); // Absorbancia de referencia
+  const err = Math.abs(v-t);
+  if (err > 2*o.tol) pen('res','Resultado','El resultado anotado se aleja de la absorbancia medida',25);
+  else if (err > o.tol) pen('res','Resultado','El resultado difiere ligeramente de la absorbancia de referencia',10);
+  o.answer = v;
+  finish(o, t);
+}
+function finish(o, t){
+  const list = Object.values(o.pens);
+  o.score = clamp(100 - list.reduce((a,p)=>a+p.pts, 0), 0, 100);
+  o.done = true;
+  list.sort((a,b) => CATS.indexOf(a.cat) - CATS.indexOf(b.cat));
+  const fmt = x => x.toFixed(3).replace('.', ',');
+  let h = '<p class="tk-n">Práctica de Espectrofotometría: Informe de Evaluación</p><h2>' + esc(o.title) + '</h2>';
+  h += '<p class="score"><b>' + o.score + '</b> / 100, ' + verdict(o.score) + '</p>';
+  if (t!==null) h += '<p>Tu resultado: <strong>' + fmt(o.answer) + ' ' + o.unit + '</strong>. Valor real de referencia: <strong>' + fmt(t) + ' ' + o.unit + '</strong>.</p>';
+  h += list.length
+    ? '<h3 style="margin-top:14px;font-size:1rem">Detalle de penalizaciones y observaciones:</h3><ul class="fails">' + list.map(p => '<li><em>' + p.cat + ':</em> ' + esc(p.text) + '. <b>−' + p.pts + ' pts</b></li>').join('') + '</ul>'
+    : '<div class="edu-section" style="background:#EDF7EE;border-color:#A3D3A8;color:#1E592B"><strong>¡Práctica impecable!</strong> Has ejecutado todos los protocolos analíticos a la perfección: calibración Dark current tras el cambio de mesa, estabilización de la lámpara, manipulación correcta de cubetas por caras esmeriladas, calibración de blanco a 525 nm, medida de absorbancia e impresión del informe.</div>';
+  h += '<div class="row" style="margin-top:20px"><button class="btn primary" data-act="restart">Reiniciar práctica</button></div>';
+  showOv(h);
+}
+function verdict(s){ return s>=90 ? 'Sobresaliente (Impecable)' : s>=70 ? 'Notable (Correcto)' : s>=50 ? 'Aprobado (Mejorable)' : 'Suspenso (Repetir práctica)'; }
+function showOv(h){ $('#ovd').innerHTML = h; $('#ov').hidden = false; const b = $('#ovd .btn'); if (b) b.focus(); }
+function hideOv(){ $('#ov').hidden = true; }
+
+/* ---------- Educational Modals (Pop-ups didácticos) ---------- */
+function showEdu(topic){
+  const d = $('#edu-d');
+  let html = '';
+  switch(topic){
+    case 'lamp':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Fundamento de Laboratorio</span>
+          <h2>Lámparas: ¿Por qué hay que encender y estabilizar la lámpara?</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-section">
+            <h3>1. ¿Por qué es necesario encender la lámpara?</h3>
+            <p>El espectrofotómetro mide cuánta radiación absorbe una disolución comparando la luz que entra con la que sale. Si la lámpara está apagada no existe haz de fotones incidente, haciendo imposible cualquier medición analítica.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Qué lámpara se utiliza y por qué no se dejan siempre encendidas?</h3>
+            <p>Para la zona visible se emplea la lámpara de tungsteno (como en el permanganato a 525 nm), reservando la de deuterio para el ultravioleta. Se apagan cuando no se usan porque tienen horas de vida útil limitadas y sufren desgaste con el tiempo.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>3. ¿Por qué es obligatorio esperar el calentamiento (Warm-up)?</h3>
+            <p>Al encender la lámpara, el filamento tarda varios minutos en alcanzar el equilibrio térmico y emitir un flujo de luz constante. Medir con la lámpara recién encendida falsearía las lecturas debido a la deriva térmica continua del haz.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'dark':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Fundamento de Laboratorio</span>
+          <h2>¿Por qué es importante que se haya movido de mesa esta mañana?</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-highlight">
+            <strong>Situación de partida:</strong> El espectrofotómetro se ha cambiado de mesa al comenzar la jornada de laboratorio.
+          </div>
+          
+          <div class="edu-section">
+            <h3>1. ¿Qué ocurre al mover un espectrofotómetro de sitio?</h3>
+            <p>Al cambiar de mesa, la luz ambiental y la orientación respecto a las luminarias del laboratorio influyen de manera diferente sobre el equipo. Por esta razón es necesario tarar el detector para compensar las nuevas condiciones del entorno.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Qué es el Dark Current (Corriente de Oscuridad)?</h3>
+            <p>Es una pequeñísima corriente eléctrica residual que genera el detector aun estando en completa oscuridad por efecto térmico. Representa la señal eléctrica de fondo del sensor cuando no le llega ningún fotón de luz.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>3. ¿Por qué es obligatorio calibrarlo ahora?</h3>
+            <p>La función Dark Current mide esta corriente en oscuridad para fijar con exactitud el nivel de cero absoluto o 0% de Transmitancia. Si no se calibra tras mover el equipo, todas las absorbancias tendrán un error de desviación constante y los resultados no serán válidos.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'uv':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Fundamento de Laboratorio</span>
+          <h2>Selección de Cubetas: Vidrio vs. Cuarzo</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-section">
+            <h3>1. ¿Qué cubetas se utilizan en esta práctica?</h3>
+            <p>Para medir permanganato a 525 nm (luz visible) se emplean cubetas de vidrio óptico estándar. Son el material más económico y habitual en el laboratorio para determinaciones en la zona visible.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Cuándo es imprescindible utilizar cubetas de cuarzo?</h3>
+            <p>El cuarzo solo es obligatorio cuando se trabaja en la zona ultravioleta, por debajo de 340 nm. El vidrio convencional absorbe fuertemente la radiación ultravioleta, bloqueando el paso de la luz.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'buttons':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Manual de Operación</span>
+          <h2>Guía de Mandos y Botones del Espectrofotómetro</h2>
+        </div>
+        <div class="edu-body">
+          <p>Funciones principales de los mandos del panel frontal:</p>
+          <div class="btn-guide-grid">
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">On/Off</span>
+              <strong>Encendido / Apagado</strong>
+              <p>Conecta la corriente, inicia el autochequeo inicial y el periodo de calentamiento de la lámpara.</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">GOTOλ</span>
+              <strong>Longitud de Onda</strong>
+              <p>Permite configurar la longitud de onda de trabajo con las flechas y confirmar con Ok (F1).</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">ZERO</span>
+              <strong>Calibración del Blanco</strong>
+              <p>Ajusta el 100.0% T / 0.000 Abs con la cubeta del blanco en el haz y la tapa cerrada.</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">SET</span>
+              <strong>Menú de Utilidades</strong>
+              <p>Da acceso al Dark Current (0% T), control de lámparas (D₂/W), modos de ensayo y versión.</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">PRINT</span>
+              <strong>Impresora Térmica</strong>
+              <p>Imprime el registro de medidas realizadas en la tira de papel oficial.</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">F1 / F2</span>
+              <strong>Botones de Función</strong>
+              <p>F1 ejecuta la acción mostrada abajo a la izquierda (Ok/Test); F2 ejecuta la de la derecha (Cancel/Return).</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">▲ ▼</span>
+              <strong>Flechas de Navegación</strong>
+              <p>Permiten recorrer las opciones de menú y modificar parámetros numéricos.</p>
+            </div>
+            <div class="btn-guide-item">
+              <span class="btn-guide-badge">Tirador</span>
+              <strong>Selector de Posición</strong>
+              <p>Desplaza el soporte interno para situar cada cubeta (1 a 4) en la trayectoria del haz de luz.</p>
+            </div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'grip':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Manipulación de Cubetas</span>
+          <h2>Caras Esmeriladas vs. Caras Transparentes</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-section">
+            <h3>1. ¿Por dónde se debe sujetar siempre la cubeta?</h3>
+            <p>Coge la cubeta exclusivamente por sus caras esmeriladas o rugosas. Estas caras laterales están diseñadas específicamente para la sujeción manual sin riesgo analítico.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Por qué nunca se deben tocar las caras transparentes?</h3>
+            <p>Las caras lisas y transparentes son las ventanas ópticas por donde atraviesa el haz de luz del equipo. La grasa y las huellas dactilares absorben radiación y falsean por completo el valor de absorbancia.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'pour':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Técnica de Llenado</span>
+          <h2>Volumen Óptimo de Llenado (65% – 85%)</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-section">
+            <h3>1. ¿Qué ocurre si la cubeta se llena muy poco (&lt; 65%)?</h3>
+            <p>Si el volumen es insuficiente, el haz de luz del espectrofotómetro incidirá sobre el menisco o sobre el aire. Esto causará lecturas erráticas e impedirá una medición válida de la disolución.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Qué ocurre si la cubeta se llena hasta el borde (&gt; 85%)?</h3>
+            <p>Un llenado excesivo facilita derrames accidentales al manipular la cubeta o al desplazar el tirador. Los líquidos derramados dentro del compartimento pueden corroer piezas mecánicas y ensuciar la óptica.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'paper':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Limpieza Óptica</span>
+          <h2>Uso del Papel de Celulosa</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-section">
+            <h3>1. ¿Cómo y dónde se utiliza el papel de celulosa?</h3>
+            <p>Se pasa suavemente por el exterior de las caras transparentes de la cubeta para secar gotas de disolvente y polvo antes de introducirla. Debe realizarse siempre con un toque seco y limpio sin frotar con fuerza.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Dónde no debe meterse nunca?</h3>
+            <p>Jamás introduzcas el papel de celulosa dentro de la cubeta para secar el interior. Desprendería fibras microscópicas que enturbiarían la disolución y alterarían gravemente la dispersión de la luz.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'slot':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Colocación en el Equipo</span>
+          <h2>Colocación en el Portacubetas y Orientación</h2>
+        </div>
+        <div class="edu-body">
+          <div class="edu-section">
+            <h3>1. ¿Cómo debe orientarse la cubeta dentro del portacubetas?</h3>
+            <p>Orienta las caras transparentes en el sentido del haz de luz (de izquierda a derecha en este equipo) y las caras esmeriladas a los lados. Si se orienta al revés, la cara rugosa bloqueará el paso del haz.</p>
+          </div>
+
+          <div class="edu-section">
+            <h3>2. ¿Qué precauciones hay que tomar antes de medir?</h3>
+            <p>Cierra siempre la tapa del compartimento para evitar que entre luz parásita ambiental al fotodetector. Comprueba además que el tirador esté situado en la posición exacta de la cubeta que deseas medir.</p>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Entendido</button>
+        </div>
+      `;
+      break;
+
+    case 'menu':
+      html = `
+        <div class="edu-header">
+          <span class="edu-tag">Repaso Teórico de Laboratorio</span>
+          <h2>Conceptos Clave de Espectrofotometría UV-Vis</h2>
+        </div>
+        <div class="edu-body">
+          <p>Selecciona cualquier concepto para repasar su explicación breve:</p>
+          <div class="edu-menu-grid">
+            <button class="edu-menu-card" data-act="edu-open" data-topic="lamp">
+              <strong>1. Lámparas: ¿Por qué encender y calentar?</strong>
+              <p>Fuente de fotones, tipos de lámparas (W/D₂) y estabilización térmica.</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="dark">
+              <strong>2. Movido de mesa y Dark Current</strong>
+              <p>Por qué calibrar el cero de luz (0% T) tras trasladar el equipo.</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="uv">
+              <strong>3. Selección de cubetas: Vidrio vs. Cuarzo</strong>
+              <p>Material según el rango de longitud de onda (Visible vs. UV).</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="buttons">
+              <strong>4. Guía de botones del panel</strong>
+              <p>Funciones oficiales de las teclas y mandos del espectrofotómetro.</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="grip">
+              <strong>5. Caras esmeriladas vs. transparentes</strong>
+              <p>Sujeción correcta y prevención de huellas en las ventanas ópticas.</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="pour">
+              <strong>6. Nivel de llenado de cubetas (65% – 85%)</strong>
+              <p>Paso del haz de luz a media altura y prevención de derrames.</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="paper">
+              <strong>7. Uso correcto del papel de celulosa</strong>
+              <p>Secar solo el exterior, limpiar caras lisas y nunca meter dentro.</p>
+            </button>
+            <button class="edu-menu-card" data-act="edu-open" data-topic="slot">
+              <strong>8. Orientación en el portacubetas</strong>
+              <p>Alineación del haz con las caras ópticas y uso del tirador.</p>
+            </button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" data-act="edu-close">Cerrar</button>
+        </div>
+      `;
+      break;
+  }
+  d.innerHTML = html;
+  $('#edu-ov').hidden = false;
+  const b = d.querySelector('.btn'); if (b) b.focus();
+}
+function hideEdu(){
+  $('#edu-ov').hidden = true;
+  if (S && S.pendingGrip){
+    const p = S.pendingGrip;
+    S.pendingGrip = null;
+    S.pending = p;
+    $('#grip').hidden = false;
+    const b = $('#grip .btn'); if (b) b.focus();
+  }
+  if (S && S.pendingPour){
+    const kind = S.pendingPour;
+    S.pendingPour = null;
+    S.pour = {kind, applied:false};
+    $('#pour-t').textContent = 'Llenar con ' + bottleName(kind);
+    renderPour();
+    $('#pour').hidden = false;
+    $('#pour-hold').focus();
+  }
+  if (S && S.pendingSlot !== undefined && S.pendingSlot !== null){
+    const slotIdx = S.pendingSlot;
+    S.pendingSlot = null;
+    slotClick(slotIdx);
+  }
+}
+
+function startScreen(){
+  showOv(
+    '<h2>Práctica de Laboratorio: Espectrofotometría UV-Vis</h2>' +
+    '<p>Determinación analítica de rutina: mide la absorbancia de una muestra de permanganato potásico (KMnO₄) a 525 nm frente a agua destilada en un espectrofotómetro Lan-Optics.</p>' +
+    '<div class="edu-card" style="margin:12px 0;background:var(--surface);border-left:4px solid var(--signal);padding:10px 14px;border-radius:4px;font-size:0.88rem;line-height:1.4">' +
+    '<strong>Fundamento previo imprescindible:</strong>' +
+    '<ul style="margin:6px 0 0;padding-left:18px">' +
+    '<li><strong>El Blanco (100,0% T / 0,000 Abs):</strong> Contiene únicamente disolvente (agua destilada). Al hacer el cero con ZERO, se fija el 100% de transmitancia descontando la absorción del agua y de la cubeta para medir solo el analito.</li>' +
+    '<li><strong>¿Por qué no usamos Patrón aquí?:</strong> En clase se usa un patrón (o curva de calibrado) para determinar concentraciones incógnitas. En esta práctica realizamos una <em>medición directa de absorbancia</em> (Modo Basic a 525 nm); por tanto, solo se requieren el <strong>Blanco</strong> (cero) y la <strong>Muestra</strong>.</li>' +
+    '</ul>' +
+    '</div>' +
+    '<div class="edu-highlight" style="margin:12px 0">' +
+    '<strong>Situación de partida:</strong> El equipo se ha cambiado de mesa esta mañana. Tras encenderlo y dejar estabilizar la lámpara, calibra el <em>Dark Current (0% T)</em> para compensar las nuevas condiciones del entorno.' +
+    '</div>' +
+    '<div class="row">' +
+    '<button class="btn primary" data-act="start-guided">Empezar práctica con Ayudas paso a paso</button>' +
+    '<button class="btn" data-act="buttons-guide">Guía de botones</button>' +
+    '<button class="btn" data-act="start-free">Empezar sin ayudas</button>' +
+    '</div>'
+  );
+}
+
+function help(){
+  showOv(
+    '<h2>Teclas del equipo</h2><dl class="keylist">' +
+    '<dt>On/Off (1.4)</dt><dd>Enciende y apaga. Tras el autochequeo inicial (4 s) inicia un calentamiento de 20 min (20 s simulados); pulsar cualquier tecla lo salta.</dd>' +
+    '<dt>GOTOλ (2.1)</dt><dd>Selecciona la longitud de onda de trabajo con las flechas ▲/▼ y confirma con F1 (Ok).</dd>' +
+    '<dt>ZERO (2.2)</dt><dd>Hace el blanco espectral (100.0% T / 0.000 Abs) con lo que esté en el haz y la tapa cerrada.</dd>' +
+    '<dt>SET (2.3)</dt><dd>Menú de funciones: modo de medida, lámpara D2, lámpara W, Dark current (0% T), Reset WL y versión.</dd>' +
+    '<dt>PRINT (2.4)</dt><dd>Imprime los resultados en la tira de papel o borra los datos guardados.</dd>' +
+    '<dt>F1 y F2 (2.5, 2.6)</dt><dd>Ejecutan la acción mostrada abajo a la izquierda (F1) y a la derecha (F2) de la LCD.</dd>' +
+    '<dt>▲ ▼ (2.7, 2.8)</dt><dd>Mueven el cursor o cambian parámetros numéricos. Mantén pulsado para avance rápido.</dd>' +
+    '</dl><h2>Normas de la mesa</h2><p>Coge las cubetas por las caras esmeriladas. Enjuágalas con agua destilada antes de usarlas y seca el exterior con papel de celulosa. Llénalas entre las dos marcas (65%–85%). Por debajo de 340 nm (UV) usa SIEMPRE cubetas de cuarzo y enciende la lámpara de deuterio. Al terminar, vacía y enjuaga las cubetas, apaga y desconecta el equipo.</p>' +
+    '<div class="row"><button class="btn primary" data-act="help-close">Cerrar</button></div>'
+  );
+}
+
+/* ---------- Guided steps (Caso unificado completo: 22 pasos) ---------- */
+function where(c){
+  if (S.hand===c) return {at:'hand'};
+  let i = S.rack.indexOf(c); if (i>=0) return {at:'rack', i};
+  i = S.slots.indexOf(c); return {at:'slot', i};
+}
+function elOf(c){ const w = where(c); if (w.at==='hand') return '#hand'; if (w.at==='rack') return '#rack-'+w.i; return S.lid==='open' ? '#slot-'+w.i : '#lid'; }
+function isReady(c, kind){ const o = cur(); return c && c.content===kind && c.level>=FILL_MIN && !c.wet && !c.prints && !c.contam && !c.dirty && (!o.mat || c.mat===o.mat); }
+const readyCuv = kind => S.cuvs.find(c => isReady(c, kind));
+const inHolder = kind => S.slots.some(c => isReady(c, kind));
+const toMain = () => ['zeroing','dark','resetwl'].includes(S.screen) ? {el:'#lcd', t:'Espera a que el equipo termine el proceso.'} : {el:'#k-f2', t:'Vuelve a la pantalla principal con F2.'};
+function firstFree(){ const i = S.slots.indexOf(null); return i>=0 ? '#slot-'+i : '#hand-return'; }
+
+function prepHint(kind){
+  const o = cur(), h = S.hand;
+  if (h){
+    if (h.mat!==o.mat) return {el:'#hand-return', t:'Esta cubeta es de ' + h.mat + '. En 280 nm (UV) se requiere cuarzo (Q). Devuélvela y coge una de cuarzo.'};
+    if (h.content && h.content!==kind){
+      if (o.kinds.includes(h.content) && isReady(h, h.content)){
+        if (S.lid!=='open') return {el:'#lid', t:'Abre la tapa para dejar esta cubeta en el portacubetas.'};
+        return S.slots.indexOf(null)>=0 ? {el:firstFree(), t:'Deja esta cubeta en el portacubetas.'} : {el:'#hand-return', t:'No queda sitio en el portacubetas. Déjala de momento en la gradilla.'};
+      }
+      return {el:'#waste', t:'Vacía la cubeta en el vaso de residuos.'};
+    }
+    if (!h.content) return h.clean ? {el:'#bottle-'+kind, t:'Llénala con ' + bottleName(kind) + ' entre las dos marcas.'} : {el:'#wash', t:'Enjuaga la cubeta con agua destilada del frasco lavador.'};
+    if (h.contam || h.dirty) return {el:'#waste', t:'La cubeta no estaba limpia. Vacíala en residuos, enjuágala y vuelve a llenarla.'};
+    if (h.level<FILL_MIN) return {el:'#bottle-'+kind, t:'Falta volumen. Añade disolución hasta quedar entre las dos marcas (65%-85%).'};
+    return {el:'#paper', t:'Seca el exterior y limpia las caras ópticas con papel de celulosa.'};
+  }
+  let c = S.cuvs.find(x => x.content===kind && x.mat===o.mat);
+  if (!c) c = S.cuvs.find(x => !x.content && x.mat===o.mat && S.rack.includes(x));
+  if (!c) c = S.cuvs.find(x => x.mat===o.mat && !o.kinds.includes(x.content));
+  if (!c) return {el:'#rack', t:'Coge una cubeta de cuarzo (Q) de la gradilla.'};
+  if (where(c).at==='slot' && S.lid==='closed') return {el:'#lid', t:'Abre la tapa para sacar la cubeta.'};
+  return {el:elOf(c), t:'Coge una cubeta de cuarzo (Q) por las caras esmeriladas.'};
+}
+function placeHint(kinds){
+  const need = kinds.filter(k => !inHolder(k));
+  if (S.lid==='closed') return {el:'#lid', t:'Abre la tapa del compartimento.'};
+  const h = S.hand;
+  if (h){
+    if (need.some(k => isReady(h, k)) && S.slots.indexOf(null)>=0) return {el:firstFree(), t:'Coloca la cubeta en una posición libre del portacubetas.'};
+    if (need.some(k => isReady(h, k))) return {el:'#hand-return', t:'No queda sitio en el portacubetas. Deja esta cubeta en la gradilla y retira una sobrante.'};
+    return {el:'#hand-return', t:'Devuelve esta cubeta a la gradilla.'};
+  }
+  const c = need.length ? readyCuv(need[0]) : null;
+  if (c) return {el:elOf(c), t:'Coge la cubeta ' + DEL[need[0]] + ' por las caras esmeriladas para colocarla en el equipo.'};
+  return {el:'#rack', t:'Prepara las cubetas.'};
+}
+function beamHint(kind){
+  const i = S.slots.findIndex(c => c && c.content===kind);
+  if (i<0) return placeHint([kind]);
+  if (S.hand) return {el:'#hand-return', t:'Deja la cubeta de la mano en la gradilla.'};
+  if (S.pos!==i) return {el:'#rod-'+i, t:'Mueve el tirador a la posición ' + (i+1) + ' para situar ' + ART[kind] + ' en el haz.'};
+  if (S.lid==='open') return {el:'#lid', t:'Cierra la tapa del compartimento.'};
+  return null;
+}
+function gotoHint(target){
+  if (S.screen==='goto'){
+    if (S.gotoVal<target) return {el:'#k-up', t:'Sube hasta ' + target + ' nm con ▲. Mantén pulsado para ir rápido.'};
+    if (S.gotoVal>target) return {el:'#k-down', t:'Baja hasta ' + target + ' nm con ▼. Mantén pulsado para ir rápido.'};
+    return {el:'#k-f1', t:'Confirma la longitud de onda con Ok (F1).'};
+  }
+  if (['main','quant_run'].includes(S.screen)) return {el:'#k-goto', t:'Pulsa GOTOλ para cambiar la longitud de onda.'};
+  return toMain();
+}
+function navSet(idx, label){
+  if (S.screen==='set'){
+    if (S.cursor<idx) return {el:'#k-down', t:'Baja con ▼ hasta ' + label + '.'};
+    if (S.cursor>idx) return {el:'#k-up', t:'Sube con ▲ hasta ' + label + '.'};
+    return {el:'#k-f1', t:'Entra en la función con Ok (F1).'};
+  }
+  if (S.screen==='main') return {el:'#k-set', t:'Pulsa SET para abrir las funciones de calibración.'};
+  return toMain();
+}
+function d2Hint(){
+  if (S.screen==='d2') return S.cursor!==0 ? {el:'#k-up', t:'Selecciona 1. On con ▲.'} : {el:'#k-f1', t:'Confirma con Ok (F1).'};
+  return navSet(1, '02. D2 Lamp');
+}
+function basicZeroHint(){
+  const b = beamHint('blanco'); if (b) return b;
+  if (S.screen==='main') return {el:'#k-f1', t:'Pulsa Basic (F1). Con el blanco en el haz, el equipo ajusta el cero.'};
+  if (S.screen==='basic') return {el:'#k-zero', t:'Pulsa ZERO para ajustar el blanco (100.0% T / 0.000 Abs).'};
+  return toMain();
+}
+function testHint(){
+  if (S.screen!=='basic') return basicZeroHint();
+  const b = beamHint('muestra'); if (b) return b;
+  return {el:'#k-f1', t:'Pulsa Test (F1) para registrar la absorbancia de la muestra.'};
+}
+function printHint(){
+  if (S.screen==='print') return S.cursor!==0 ? {el:'#k-up', t:'Selecciona 1. Print and clear.'} : {el:'#k-f1', t:'Confirma con Ok (F1).'};
+  if (S.screen==='basic' || S.screen==='main') return {el:'#k-print', t:'Pulsa PRINT para imprimir el registro oficial.'};
+  return basicZeroHint();
+}
+function quantEntry(){
+  if (S.screen==='quant_blank'){ const b = beamHint('blanco'); return b || {el:'#k-f1', t:'Con el blanco en el haz y tapa cerrada, confirma con Ok (F1).'}; }
+  if (S.screen==='main') return {el:'#k-f2', t:'Pulsa Quantitative (F2) para entrar en el modo cuantitativo.'};
+  return {el:'#k-f2', t:'Vuelve con F2 y pulsa Quantitative.'};
+}
+function qStdHint(){
+  if (S.screen!=='quant_std') return quantEntry();
+  const b = beamHint('estandar'); if (b) return b;
+  const want = cur().cStd.toFixed(4).replace('.','').split('').map(Number);
+  const q = S.quant, d = q.digits[q.di], w = want[q.di];
+  if (d<w) return {el:'#k-up', t:'Sube el dígito seleccionado hasta ' + w + ' con ▲.'};
+  if (d>w) return {el:'#k-down', t:'Baja el dígito seleccionado hasta ' + w + ' con ▼.'};
+  return {el:'#k-f1', t: q.di<4 ? 'Pasa al siguiente dígito con Ok (F1).' : 'Confirma con Ok (F1). El equipo medirá el estándar.'};
+}
+function printHint(){
+  if (S.screen==='print') return S.cursor!==0 ? {el:'#k-up', t:'Selecciona 1. Print and clear con ▲.'} : {el:'#k-f1', t:'Confirma la impresión con Ok (F1).'};
+  if (S.screen==='quant_run') return {el:'#k-print', t:'Pulsa PRINT para imprimir el registro de resultados.'};
+  return toMain();
+}
+function cleanCuvsHint(){
+  const h = S.hand;
+  if (h){
+    if (h.content) return {el:'#waste', t:'Vacía la cubeta en el vaso de residuos.'};
+    if (h.used && !h.clean) return {el:'#wash', t:'Enjuaga la cubeta con agua destilada.'};
+    return {el:'#hand-return', t:'Devuelve la cubeta limpia a la gradilla.'};
+  }
+  const i = S.slots.findIndex(x => x);
+  if (i>=0) return S.lid==='open' ? {el:'#slot-'+i, t:'Saca la cubeta de la posición ' + (i+1) + ' para limpiarla.'} : {el:'#lid', t:'Abre la tapa para sacar las cubetas del equipo.'};
+  const d = S.cuvs.find(x => x.content || (x.used && !x.clean));
+  if (d) return {el:elOf(d), t:'Coge esta cubeta de la gradilla para vaciarla y enjuagarla.'};
+  return null;
+}
+function shutdownHint(){
+  if (S.slots.some(x=>x) || S.hand || S.cuvs.some(c=>c.content || (c.used && !c.clean))) return cleanCuvsHint();
+  if (S.lid==='open') return {el:'#lid', t:'Cierra la tapa del compartimento.'};
+  if (S.power) return {el:'#power', t:'Apaga el espectrofotómetro con el botón On/Off.'};
+  if (S.plugged) return {el:'#cable', t:'Desconecta el cable de red de la toma de corriente.'};
+  return null;
+}
+
+function getSteps(){
+  const o = cur(), fl = o.flags;
+  const prep = k => ({
+    t: 'Prepara la cubeta de vidrio ' + DEL[k] + ' (enjuagar, llenar al 65-85% y secar exterior)',
+    done: () => !!readyCuv(k),
+    hint: () => prepHint(k)
+  });
+
+  return [
+    // 1-4: Puesta en marcha y estabilización de la lámpara
+    {
+      t: 'Conecta el cable de red a la toma eléctrica (220 V)',
+      done: () => S.plugged,
+      hint: () => ({ el: '#cable', t: 'Haz clic sobre el enchufe para conectar el cable de red a la toma de corriente.' })
+    },
+    {
+      t: 'Enciende el equipo con el botón On/Off',
+      done: () => S.power,
+      hint: () => ({ el: '#power', t: 'Pulsa el botón On/Off (1.4) para encender el espectrofotómetro.' })
+    },
+    {
+      t: 'Espera el autochequeo inicial con la tapa cerrada',
+      done: () => S.phase === 'warmup' || S.phase === 'ready',
+      hint: () => S.lid === 'open'
+        ? { el: '#lid', t: 'Cierra la tapa. Durante el autochequeo óptico no debe entrar luz al compartimento.' }
+        : { el: '#lcd', t: 'Espera unos segundos mientras el equipo chequea los filtros y el motor óptico.' }
+    },
+    {
+      t: 'Deja calentar la lámpara para estabilizar el haz de luz (Warm-up)',
+      done: () => S.phase === 'ready',
+      hint: () => ({ el: '#lcd', t: 'Deja calentar la lámpara de tungsteno para estabilizar el flujo luminoso. Si deseas continuar de inmediato, pulsa cualquier tecla.' })
+    },
+
+    // 5: Calibración Dark Current por cambio de mesa
+    {
+      t: 'Calibra el Dark Current (SET → 04. Dark Current) por haberse movido de mesa',
+      done: () => !S.darkNeeded,
+      hint: () => navSet(3, '04. Dark Current')
+    },
+
+    // 6: Ajuste de longitud de onda
+    {
+      t: 'Ajusta la longitud de onda a 525 nm con GOTOλ',
+      done: () => !!fl.wlOk,
+      hint: () => gotoHint(525)
+    },
+
+    // 7-8: Preparación de cubetas de vidrio
+    prep('blanco'),
+    prep('muestra'),
+
+    // 9: Colocación en el portacubetas
+    {
+      t: 'Coloca las 2 cubetas en el portacubetas (Blanco en pos. 1 y Muestra en pos. 2)',
+      done: () => inHolder('blanco') && inHolder('muestra'),
+      hint: () => placeHint(['blanco', 'muestra'])
+    },
+
+    // 10: Ajuste de línea de base (Blanco)
+    {
+      t: 'Con el blanco en el haz (tirador 1) y tapa cerrada, ajusta el cero (F1: Basic)',
+      done: () => !!fl.basicZero,
+      hint: basicZeroHint
+    },
+
+    // 11: Medición de la muestra
+    {
+      t: 'Lleva la muestra al haz (tirador 2), tapa cerrada y lee la absorbancia con Test (F1)',
+      done: () => !!fl.test,
+      hint: testHint
+    },
+
+    // 12: Impresión
+    {
+      t: 'Imprime el registro oficial con PRINT (1. Print and clear)',
+      done: () => !!fl.printed,
+      hint: printHint
+    },
+
+    // 13: Registro y entrega
+    {
+      t: 'Anota la absorbancia en el informe a la derecha y pulsa Entregar informe final',
+      done: () => false,
+      hint: () => ({ el: '#result', t: 'Escribe en el recuadro la absorbancia leída en la pantalla LCD (ej. 0,582) y pulsa Entregar.' })
+    }
+  ];
+}
+
+/* Detector de tareas completadas para emitir retroalimentación */
+let doneStepsSet = new Set();
+function checkStepChanges(){
+  if (!S) return;
+  const steps = getSteps();
+  steps.forEach((s, idx) => {
+    const isDone = s.done();
+    if (isDone && !doneStepsSet.has(idx)){
+      doneStepsSet.add(idx);
+      notify('¡Paso ' + (idx+1) + ' completado!', s.t, 'done');
+    } else if (!isDone && doneStepsSet.has(idx)){
+      doneStepsSet.delete(idx);
+    }
+  });
+}
+
+/* ---------- Rendering ---------- */
+function lcdModel(){
+  if (!S.power) return null;
+  const sc = S.screen, WL = 'WL: ' + S.wl.toFixed(1) + ' nm';
+  const r = S.phase==='ready' ? reading() : null;
+  const A = r ? fmtA(r.A) + ' Abs' : '', T = r ? r.T.toFixed(1) + ' %T' : '', E = r ? 'E: ' + (r.I*100).toFixed(1) : '';
+  const top = S.testMode==='T%' ? T : S.testMode==='Energy' ? E : A;
+  const second = S.testMode==='Abs' ? T : A;
+  const L = (l, rr, raw) => [l || '', rr || '', raw];
+  const list = (items, c) => items.map((t,i) => L((i===c ? '>' : ' ') + t));
+  switch (sc){
+    case 'selftest': { const p = clamp(1-(S.phaseEnd-now())/SELFTEST_MS, 0, 1); return {lines:[L(),L(' Self test...'),L(' ' + '#'.repeat(Math.round(p*16)).padEnd(16,'.')),L()], soft:['','']}; }
+    case 'warmup': { const sim = Math.max(0,S.phaseEnd-now())/WARM_MS*1200; return {lines:[L('Warm up 20 minutes'),L('any key to skip'),L(),L('', String(Math.floor(sim/60)).padStart(2,'0') + ':' + String(Math.floor(sim%60)).padStart(2,'0'))], soft:['','']}; }
+    case 'main': return {lines:[L(WL,top),L('',second),L(),L()], soft:['Basic','Quantitative']};
+    case 'goto': return {lines:[L(WL),L('Please Enter WL.:'),L('', S.gotoVal + ' nm'),L()], soft:['Ok','Return']};
+    case 'set': {
+      const items = ['01. Test mode','02. D2 Lamp ' + (S.d2?'On':'Off'),'03. W Lamp ' + (S.w?'On':'Off'),'04. Dark Current','05. Reset WL','06. Version'];
+      const pg = S.cursor<3 ? 0 : 3;
+      return {lines:[...list(items.slice(pg,pg+3), S.cursor-pg), L('', pg ? '2/2' : '1/2')], soft:['Ok','Cancel']};
+    }
+    case 'testmode': { const m = ['Abs','T%','Energy']; return {lines:[L('Test mode'),...list(['1. Abs','2. T%','3. Energy'].map((t,i)=>t + (m[i]===S.testMode?' *':'')), S.cursor)], soft:['Ok','Cancel']}; }
+    case 'd2': case 'w': { const on = sc==='d2' ? S.d2 : S.w; return {lines:[L(sc==='d2'?'D2 Lamp':'W Lamp'),...list(['1. On' + (on?' *':''),'2. Off' + (on?'':' *')], S.cursor),L()], soft:['Ok','Cancel']}; }
+    case 'basic': {
+      const last = S.rows.length ? S.rows[S.rows.length - 1] : null;
+      const l3 = last ? 'No.' + last.no + '  ' + last.wl.toFixed(0) + 'nm' : '';
+      const r3 = last ? fmtA(last.A) + ' Abs' : '';
+      return {
+        lines: [
+          L(WL, top),
+          L('', second),
+          L(l3, r3),
+          L()
+        ],
+        soft: ['Test', 'Return']
+      };
+    }
+    case 'dark': return {lines:[L(),L('Get Dark Current.'),L(),L()], soft:['','']};
+    case 'resetwl': return {lines:[L(),L('Calibrating WL...!'),L(),L()], soft:['','']};
+    case 'version': return {lines:[L('Lan-Optics UV-Vis'),L('Software V2.03'),L('Hardware V1.10'),L('Any key to return')], soft:['','']};
+    case 'zeroing': return {lines:[L(WL),L('zero...'),L(),L()], soft:['','']};
+    case 'quant_blank': return {lines:[L(WL,top),L('Please Insert Blank:'),L(),L()], soft:['Ok','Cancel']};
+    case 'quant_std': {
+      const q = S.quant, d = q.digits.map((x,i) => i===q.di ? '<u>' + x + '</u>' : String(x));
+      return {lines:[L(WL,top),L('Please Insert Standard:'),L('Input Conc.: ' + d[0] + '.' + d.slice(1).join(''), '', true),L()], soft:['Ok','Cancel']};
+    }
+    case 'quant_run': { const c = r ? r.A*S.quant.factor : 0; return {lines:[L(WL,top),L('', c.toFixed(4) + ' Conc'),L(),L()], soft:['','Cancel']}; }
+    case 'print': return {lines:[...list(['1. Print and clear','2. Only clear, not print','3. Cancel'], S.cursor),L()], soft:['Ok','Cancel']};
+  }
+  return {lines:[], soft:['','']};
+}
+function renderLCD(){
+  const el = $('#lcd'), m = lcdModel();
+  let h = '';
+  if (m){
+    h = m.lines.map(([l,r,raw]) => '<div class="ln"><span>' + (raw ? l : esc(l)) + '</span><span>' + esc(r) + '</span></div>').join('') +
+        '<div class="soft"><span>' + esc(m.soft[0]) + '</span><span>' + esc(m.soft[1]) + '</span></div>';
+  }
+  el.classList.toggle('off', !m);
+  if (el._h!==h){ el.innerHTML = h; el._h = h; }
+}
+function renderLeds(){
+  const w = $('#led-w'), d = $('#led-d2');
+  w.classList.toggle('on', S.power && S.w);
+  d.classList.toggle('on', S.power && S.d2 && d2Progress()>=1);
+  d.classList.toggle('warm', S.power && S.d2 && d2Progress()<1);
+}
+function sideHTML(c, size){
+  const col = c.content ? colorOf(c.content) : 'transparent';
+  return '<span class="cuv ' + c.mat + ' ' + (size||'') + '"><span class="glass"><span class="liq" style="height:' + c.level + '%;background:' + col + '"></span><span class="mk"></span></span>' +
+    (c.prints ? '<span class="fp"></span>' : '') + (c.wet ? '<span class="drop"></span>' : '') +
+    '<span class="mat">' + (c.mat==='cuarzo' ? 'Q' : 'V') + '</span></span>';
+}
+function cuvDesc(c){
+  const p = [c.content ? 'con ' + LABEL[c.content] : 'vacía'];
+  if (!c.content && c.clean) p.push('enjuagada');
+  if (c.wet) p.push('con gotas por fuera');
+  if (c.prints) p.push('con huellas');
+  return 'Cubeta de ' + c.mat + ', ' + p.join(', ');
+}
+function stateText(c){
+  const p = [];
+  p.push(c.content ? 'Contiene ' + LABEL[c.content] + ' (' + Math.round(c.level) + ' %)' : 'Vacía');
+  if (!c.content && c.clean) p.push('enjuagada');
+  if (c.wet) p.push('con gotas por fuera');
+  if (c.prints) p.push('con huellas en las caras');
+  return p.join(', ');
+}
+function renderDevice(){
+  const open = S.lid==='open';
+  $('#compartment').classList.toggle('open', open);
+  $('#lid').textContent = open ? 'Cerrar tapa' : 'Abrir tapa';
+  $('#holder').style.setProperty('--pos', S.pos);
+  $('#holder').innerHTML = S.slots.map((c,i) => {
+    const fill = c && c.content && c.level>0 ? colorOf(c.content) : 'transparent';
+    return '<button class="slot" id="slot-' + i + '" data-act="slot" data-i="' + i + '" ' + (open ? '' : 'tabindex="-1" ') +
+      (c && open ? ' draggable="true"' : '') +
+      ' aria-label="Posición ' + (i+1) + ': ' + (c ? cuvDesc(c) : 'libre') + '">' +
+      (c ? '<span class="ctop ' + c.mat + '" style="--fill:' + fill + '"></span>' : '') + '<span class="sn">' + (i+1) + '</span></button>';
+  }).join('');
+  const bk = beam();
+  $('#cover').innerHTML = '<span>Tapa cerrada</span><small>En el haz: posición ' + (S.pos+1) + (bk ? ' (' + (bk.content ? LABEL[bk.content] : 'cubeta vacía') + ')' : ', sin cubeta') + '</small>';
+  $('#rod').innerHTML = '<span class="lbl">Tirador</span>' + [0,1,2,3].map(i => '<button class="rodb' + (i===S.pos?' on':'') + '" id="rod-' + i + '" data-act="rod" data-i="' + i + '" aria-label="Tirador en posición ' + (i+1) + '">' + (i+1) + '</button>').join('');
+  const pw = $('#power'); pw.classList.toggle('on', S.power); pw.setAttribute('aria-pressed', S.power);
+  const cb = $('#cable'); cb.classList.toggle('on', S.plugged); cb.querySelector('span').textContent = S.plugged ? 'Cable conectado (220 V)' : 'Cable desconectado';
+  $('#note').hidden = !(cur().needDark && S.darkNeeded && !cur().done);
+  const pp = $('#printout'); pp.hidden = !S.printout; pp.textContent = S.printout || '';
+}
+function renderBench(){
+  $('#rack').innerHTML = S.rack.map((c,i) => '<button class="rslot" id="rack-' + i + '" data-act="rack" data-i="' + i + '"' + (c ? ' draggable="true"' : '') + ' aria-label="Gradilla, hueco ' + (i+1) + ': ' + (c ? cuvDesc(c) : 'libre') + '">' + (c ? sideHTML(c) : '') + '</button>').join('');
+  const h = S.hand;
+  $('#hand').innerHTML = h
+    ? '<span draggable="true" style="cursor:grab;display:inline-block" title="Arrastra la cubeta al portacubetas o a la gradilla">' + sideHTML(h, 'big') + '</span><div class="hstate"><strong>En la mano: cubeta de ' + h.mat + '</strong><span>' + stateText(h) + '</span><button class="btn small" id="hand-return" data-act="return">Devolver a la gradilla</button></div>'
+    : '<p>Mano libre. Haz clic en una cubeta de la gradilla para cogerla o arrástrala.</p>';
+  const o = cur();
+  let sup = '<button class="item" id="wash" data-act="wash"><span class="wash"></span>Frasco lavador<small>agua destilada</small></button>';
+  sup += o.bottles.map(b => '<button class="item" id="bottle-' + b.kind + '" data-act="bottle" data-kind="' + b.kind + '"><span class="bottle" style="--c:' + colorOf(b.kind) + '"></span>' + esc(b.name) + '<small>' + LABEL[b.kind] + '</small></button>').join('');
+  sup += '<button class="item" id="paper" data-act="paper"><span class="tissue"></span>Papel de celulosa<small>secar y limpiar</small></button>';
+  sup += '<button class="item" id="waste" data-act="waste"><span class="beaker"></span>Vaso de residuos<small>vaciar cubeta</small></button>';
+  $('#sup').innerHTML = sup;
+}
+function renderTicket(){
+  const o = cur(), key = S.oi + '|' + S.guided;
+  $('#prog').textContent = 'Práctica de Laboratorio (1 de 1)';
+  if (S.ticketKey===key) return;
+  S.ticketKey = key; S.stepsHTML = '';
+  let h = '<p class="tk-n">Práctica de Laboratorio (1 de 1)</p><h2>' + esc(o.title) + '</h2><p>' + esc(o.brief) + '</p>';
+  h += '<dl><dt>Método</dt><dd>' + MODE_NAME[o.mode] + '</dd><dt>Longitud de onda</dt><dd>' + o.wl + ' nm (' + (o.wl<340?'UV':'Visible') + ')</dd><dt>Lámpara</dt><dd>' + (o.wl<340?'Deuterio (D₂)':'Tungsteno (W)') + '</dd><dt>Cubetas</dt><dd>' + (o.mat==='cuarzo'?'Cuarzo (Q)':'Vidrio óptico (V)') + '</dd></dl>';
+  h += '<label for="result">Absorbancia medida (Abs)</label><div class="res"><input id="result" inputmode="decimal" autocomplete="off" placeholder="0,000"><span>' + o.unit + '</span></div>';
+  h += '<button class="btn primary" id="deliver" data-act="deliver">Entregar informe final</button>';
+  h += '<div class="steps-header">INSTRUCCIONES DEL TRABAJO</div>';
+  h += '<ol class="steps" id="steps"' + (S.guided ? '' : ' hidden') + '></ol>';
+  $('#ticket').innerHTML = h;
+}
+function renderSteps(){
+  if (!S.guided) return;
+  const st = getSteps(); let first = -1;
+  const h = st.map((s,i) => {
+    const d = s.done(); if (!d && first<0) first = i;
+    return '<li class="' + (d ? 'done' : (first===i ? 'now' : '')) + '">' + esc(s.t) + '</li>';
+  }).join('');
+  if (S.stepsHTML!==h){ const el = $('#steps'); if (el) el.innerHTML = h; S.stepsHTML = h; }
+}
+
+/* Renderizado del Cartel de Instrucciones superior */
+function renderCartel(){
+  const st = getSteps();
+  const activeIdx = st.findIndex(s => !s.done());
+  const activeStep = activeIdx >= 0 ? st[activeIdx] : null;
+  const total = st.length;
+  const currentNum = activeIdx >= 0 ? activeIdx + 1 : total;
+
+  const progBadge = $('#cartel-prog');
+  if (progBadge){
+    progBadge.textContent = activeIdx >= 0 ? `Paso ${currentNum} de ${total}` : '¡Todos los pasos completados!';
+  }
+
+  const numEl = $('#cartel-num');
+  const titleEl = $('#cartel-title');
+  const descEl = $('#cartel-desc');
+
+  if (activeStep){
+    if (numEl) numEl.textContent = currentNum;
+    if (titleEl) titleEl.textContent = activeStep.t;
+    const busy = ['zeroing','dark','resetwl'].includes(S.screen);
+    const hintObj = busy ? {t:'Espera a que el equipo termine el proceso en curso.'} : (activeStep.hint ? activeStep.hint() : {});
+    if (descEl) descEl.textContent = hintObj.t || 'Sigue las indicaciones del panel o de los materiales en la mesa.';
+  } else {
+    if (numEl) numEl.textContent = 'OK';
+    if (titleEl) titleEl.textContent = '¡Práctica completada con éxito!';
+    if (descEl) descEl.textContent = 'Pulsa "Entregar informe final" en el panel de la derecha para obtener tu calificación.';
+  }
+
+  const allStepsContainer = $('#cartel-all-steps');
+  if (allStepsContainer){
+    allStepsContainer.innerHTML = st.map((s, idx) => {
+      const isDone = s.done();
+      const isActive = idx === activeIdx;
+      const cls = isDone ? 'done' : (isActive ? 'active' : '');
+      const mark = isDone ? 'OK' : (idx + 1);
+      return `<div class="cartel-step-item ${cls}"><span class="chk">${mark}.</span><span>${esc(s.t)}</span></div>`;
+    }).join('');
+  }
+}
+
+let lastCue = null;
+function renderGuide(){
+  let sel = null, text = '';
+  if (S.guided && $('#ov').hidden && $('#edu-ov').hidden && $('#grip').hidden && $('#pour').hidden){
+    const st = getSteps(), s = st.find(x => !x.done());
+    if (s){
+      const busy = ['zeroing','dark','resetwl'].includes(S.screen);
+      const hnt = busy ? {el:'#lcd', t:'Espera a que el equipo termine.'} : (s.hint() || {});
+      sel = hnt.el || null; text = 'Siguiente: ' + (hnt.t || s.t);
+    }
+  }
+  const nx = $('#next'); if (nx.textContent!==text) nx.textContent = text;
+  const el = sel ? document.querySelector(sel) : null;
+  if (lastCue && lastCue!==el) lastCue.classList.remove('cue');
+  if (el && !el.classList.contains('cue')) el.classList.add('cue');
+  lastCue = el;
+}
+function renderPour(){
+  const c = S.hand; if (!c) return;
+  $('#pour-cuv').innerHTML = sideHTML(c, 'huge');
+  const lv = Math.round(c.level);
+  $('#pour-lv').textContent = 'Nivel: ' + lv + ' %' + (lv===0 ? '' : lv<FILL_MIN ? ', insuficiente (menos del 65%)' : lv<=FILL_MAX ? ', nivel idóneo (entre marcas)' : ', demasiado alto (> 85%)');
+}
+function renderAll(){
+  renderCartel();
+  renderDevice();
+  renderBench();
+  renderTicket();
+  renderLCD();
+  renderLeds();
+  renderSteps();
+  renderGuide();
+}
+
+/* ---------- Loop ---------- */
+function tick(){
+  if (!S) return;
+  const t = now(); let changed = false;
+  if (S.phase==='selftest' && t>=S.phaseEnd){ S.phase='warmup'; S.phaseEnd=t+WARM_MS; S.screen='warmup'; changed=true; }
+  else if (S.phase==='warmup' && t>=S.phaseEnd){ finishWarm(false); changed=true; }
+  if (S.screen==='zeroing' && t>=S.timer){ endZero(); changed=true; }
+  if ((S.screen==='dark' || S.screen==='resetwl') && t>=S.timer){
+    if (S.screen==='dark'){
+      S.darkNeeded=false;
+      notify('Dark Current completado', 'Cero absoluto de luz (0% T) calibrado con éxito.', 'good');
+    }
+    S.screen='set'; changed=true;
+  }
+  if (S.screen==='quant_run' && beamKind()==='muestra' && !cur().done){
+    cur().snap = snap('quant');
+    if (S.lid==='closed') F().qRead = true;
+  }
+
+  // Triggers automáticos didácticos
+  if (S.phase==='ready' && S.darkNeeded && !S.eduSeen.dark){
+    const st = getSteps();
+    const activeStep = st.find(s => !s.done());
+    if (activeStep && activeStep.t.includes('Dark current')){
+      S.eduSeen.dark = true;
+      showEdu('dark');
+    }
+  }
+  if (S.phase==='ready' && !S.darkNeeded && !S.d2 && !S.eduSeen.uv){
+    const st = getSteps();
+    const activeStep = st.find(s => !s.done());
+    if (activeStep && activeStep.t.includes('deuterio')){
+      S.eduSeen.uv = true;
+      showEdu('uv');
+    }
+  }
+
+  checkStepChanges();
+
+  if (changed) renderAll(); else { renderCartel(); renderLCD(); renderLeds(); renderSteps(); renderGuide(); }
+}
+
+/* ---------- Events ---------- */
+function startGame(guided){
+  S = newState(guided);
+  doneStepsSet = new Set();
+  $('#guided').checked = guided;
+  lastCue = null;
+  hideOv();
+  hideEdu();
+  renderAll();
+  notify('Práctica iniciada', 'Sigue las instrucciones del cartel superior.', 'good');
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (t){
+    const a = t.dataset.act, i = +t.dataset.i;
+    if (a==='start-guided') return startGame(true);
+    if (a==='start-free') return startGame(false);
+    if (a==='restart') return startGame(S ? S.guided : true);
+    if (a==='help') return help();
+    if (a==='help-close'){ hideOv(); return; }
+    if (a==='buttons-guide'){ showEdu('buttons'); return; }
+    if (a==='edu-menu'){ showEdu('menu'); return; }
+    if (a==='edu-dark'){ showEdu('dark'); return; }
+    if (a==='edu-close'){ hideEdu(); return; }
+    if (a==='edu-open'){ showEdu(t.dataset.topic); return; }
+
+    if (!S) return;
+    switch (a){
+      case 'grip-frost': gripChoose(false); break;
+      case 'grip-clear': gripChoose(true); break;
+      case 'grip-cancel': gripChoose(null); break;
+      case 'pour-done':
+        stopPour();
+        if (S.hand){
+          if (S.hand.level>=FILL_MIN && S.hand.level<=FILL_MAX) notify('Llenado idóneo', 'Nivel correcto (' + Math.round(S.hand.level) + '%). Seca el exterior antes de medir.', 'good');
+          else if (S.hand.level<FILL_MIN) notify('Nivel bajo', 'Volumen escaso (' + Math.round(S.hand.level) + '%). El haz de luz podría cortar el menisco.', 'warn');
+        }
+        S.pour=null; $('#pour').hidden=true;
+        break;
+      case 'lid': toggleLid(); break;
+      case 'rod':
+        S.pos = i;
+        notify('Tirador en pos. ' + (i+1), 'Alineada la posición ' + (i+1) + ' con el haz de luz.', 'info');
+        break;
+      case 'slot': slotClick(i); break;
+      case 'rack': rackClick(i); break;
+      case 'return': returnHand(); break;
+      case 'wash': wash(); break;
+      case 'paper': dry(); break;
+      case 'waste': waste(); break;
+      case 'bottle': openPour(t.dataset.kind); break;
+      case 'deliver': deliver(); break;
+      case 'power': togglePower(); break;
+      case 'cable': toggleCable(); break;
+    }
+    renderAll();
+    return;
+  }
+
+  // Toggle listado completo en el cartel de instrucciones
+  if (e.target.closest('#btn-toggle-steps')){
+    const list = $('#cartel-all-steps');
+    const isHidden = list.hidden;
+    list.hidden = !isHidden;
+    const total = getSteps ? getSteps().length : 13;
+    $('#btn-toggle-steps-text').textContent = isHidden ? 'Ocultar lista ▲' : 'Ver todos los pasos (' + total + ') ▼';
+  }
+});
+
+document.querySelectorAll('[data-key]').forEach(b => {
+  const k = b.dataset.key;
+  if (k==='up' || k==='down'){
+    let tm = null, n = 0;
+    const stop = () => { clearTimeout(tm); tm = null; };
+    b.addEventListener('pointerdown', e => {
+      if (e.button!==0 || !S) return;
+      n = 0; key(k, 1);
+      const loop = () => { n++; key(k, n>12 ? 10 : 1); tm = setTimeout(loop, n>12 ? 90 : 110); };
+      tm = setTimeout(loop, 380);
+    });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+    b.addEventListener('click', e => { if (e.detail===0 && S) key(k, 1); });
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  } else {
+    b.addEventListener('click', () => { if (S) key(k, 1); });
+  }
+});
+
+const ph = $('#pour-hold');
+ph.addEventListener('pointerdown', e => {
+  if (e.button!==0) return; e.preventDefault();
+  stopPour(); pourStep(1.1); pourT = setInterval(() => pourStep(1.1), 40);
+});
+['pointerup','pointerleave','pointercancel'].forEach(ev => ph.addEventListener(ev, stopPour));
+ph.addEventListener('click', e => { if (e.detail===0) pourStep(5); });
+ph.addEventListener('contextmenu', e => e.preventDefault());
+
+$('#guided').addEventListener('change', e => {
+  if (!S) return;
+  S.guided = e.target.checked; S.ticketKey = '';
+  if (!S.guided && lastCue){ lastCue.classList.remove('cue'); lastCue = null; }
+  renderAll();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape'){
+    if (!$('#edu-ov').hidden){ hideEdu(); renderAll(); }
+    else if (!$('#grip').hidden){ gripChoose(null); renderAll(); }
+    else if (!$('#pour').hidden){ stopPour(); S.pour=null; $('#pour').hidden=true; renderAll(); }
+  }
+});
+
+
+/* ---------- Drag and Drop para Cubetas ---------- */
+let dragPayload = null;
+document.addEventListener('dragstart', e => {
+  const rslot = e.target.closest('.rslot');
+  const slot = e.target.closest('.slot');
+  const handCuv = e.target.closest('#hand [draggable="true"]');
+
+  if (rslot && rslot.dataset.i !== undefined){
+    const idx = +rslot.dataset.i;
+    if (S && S.rack[idx]){
+      dragPayload = {from:'rack', i:idx};
+      e.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  } else if (slot && slot.dataset.i !== undefined){
+    const idx = +slot.dataset.i;
+    if (S && S.slots[idx]){
+      dragPayload = {from:'slot', i:idx};
+      e.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  } else if (handCuv && S && S.hand){
+    dragPayload = {from:'hand'};
+    e.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
+    e.dataTransfer.effectAllowed = 'move';
+  }
+});
+
+document.addEventListener('dragend', () => {
+  dragPayload = null;
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+});
+
+document.addEventListener('dragover', e => {
+  const slot = e.target.closest('.slot');
+  const rslot = e.target.closest('.rslot');
+  const rack = e.target.closest('#rack');
+  if (slot || rslot || rack){
+    e.preventDefault();
+    if (slot) slot.classList.add('drag-over');
+    if (rslot) rslot.classList.add('drag-over');
+  }
+});
+
+document.addEventListener('dragleave', e => {
+  const slot = e.target.closest('.slot');
+  const rslot = e.target.closest('.rslot');
+  if (slot && !slot.contains(e.relatedTarget)) slot.classList.remove('drag-over');
+  if (rslot && !rslot.contains(e.relatedTarget)) rslot.classList.remove('drag-over');
+});
+
+document.addEventListener('drop', e => {
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  const slot = e.target.closest('.slot');
+  const rslot = e.target.closest('.rslot');
+  const rack = e.target.closest('#rack');
+
+  let data = dragPayload;
+  if (!data){
+    try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch(err){}
+  }
+  if (!data || !S) return;
+
+  if (slot && slot.dataset.i !== undefined){
+    e.preventDefault();
+    const targetSlot = +slot.dataset.i;
+    if (S.lid !== 'open'){
+      notify('Tapa cerrada', 'Abre la tapa del compartimento para colocar la cubeta.', 'warn');
+      return;
+    }
+    if (data.from === 'hand'){
+      slotClick(targetSlot);
+      renderAll();
+    } else if (data.from === 'rack'){
+      const c = S.rack[data.i];
+      if (!c) return;
+      if (S.slots[targetSlot]){
+        notify('Posición ocupada', 'La posición ' + (targetSlot+1) + ' ya tiene una cubeta.', 'warn');
+        return;
+      }
+      if (S.hand){
+        notify('Mano ocupada', 'Deja primero la cubeta de la mano en la gradilla.', 'warn');
+        return;
+      }
+      if (!S.eduSeen.slot){
+        S.eduSeen.slot = true;
+        S.pendingSlot = targetSlot;
+        S.hand = c;
+        S.rack[data.i] = null;
+        showEdu('slot');
+        renderAll();
+        return;
+      }
+      if (c.wet || c.prints){
+        pen('dirtyplace','Cubetas','Se colocó una cubeta con gotas o huellas sin secar con celulosa',5);
+      }
+      S.rack[data.i] = null;
+      S.slots[targetSlot] = c;
+      notify('Cubeta insertada', 'Cubeta ' + (c.content ? DEL[c.content] : '') + ' colocada en la posición ' + (targetSlot+1) + ' del portacubetas.', 'good');
+      renderAll();
+    } else if (data.from === 'slot'){
+      if (data.i !== targetSlot){
+        const temp = S.slots[targetSlot];
+        S.slots[targetSlot] = S.slots[data.i];
+        S.slots[data.i] = temp;
+        notify('Posición cambiada', 'Cubeta movida a la posición ' + (targetSlot+1) + '.', 'info');
+        renderAll();
+      }
+    }
+  } else if (rslot || rack){
+    e.preventDefault();
+    const targetRackI = rslot && rslot.dataset.i !== undefined ? +rslot.dataset.i : S.rack.indexOf(null);
+    if (data.from === 'hand'){
+      if (targetRackI >= 0 && !S.rack[targetRackI]){
+        S.rack[targetRackI] = S.hand;
+        S.hand = null;
+        notify('Cubeta en gradilla', 'Cubeta depositada en el hueco ' + (targetRackI+1) + '.', 'info');
+        renderAll();
+      } else {
+        returnHand();
+        renderAll();
+      }
+    } else if (data.from === 'slot'){
+      if (S.lid !== 'open'){
+        notify('Tapa cerrada', 'Abre la tapa para retirar la cubeta.', 'warn');
+        return;
+      }
+      const c = S.slots[data.i];
+      if (c){
+        const freeI = targetRackI >= 0 && !S.rack[targetRackI] ? targetRackI : S.rack.indexOf(null);
+        if (freeI >= 0){
+          S.slots[data.i] = null;
+          S.rack[freeI] = c;
+          notify('Cubeta en gradilla', 'Cubeta devuelta a la gradilla.', 'info');
+          renderAll();
+        } else {
+          notify('Gradilla llena', 'No hay espacio libre en la gradilla.', 'warn');
+        }
+      }
+    }
+  }
+  dragPayload = null;
+});
+
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'result'){
+    renderSteps();
+    renderCartel();
+    renderGuide();
+    checkStepChanges();
+  }
+});
+
+setInterval(tick, 150);
+startScreen();
+})();
+</script>
+</body>
+</html>
