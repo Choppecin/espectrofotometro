@@ -1049,10 +1049,8 @@ function showRankingModal(highlightId){
 
   h += '<div class="row" style="margin-top:14px;justify-content:space-between;flex-wrap:wrap;gap:8px">';
   h += '<button class="btn primary" data-act="restart">Jugar / Mejorar récord</button>';
-  h += '<div style="display:flex;gap:8px">';
-  if (list.length) h += '<button class="btn small" data-act="clear-ranking" style="color:var(--bad)">Borrar tabla</button>';
   h += '<button class="btn small" data-act="ranking-close">Cerrar</button>';
-  h += '</div></div>';
+  h += '</div>';
 
   showOv(h);
 }
