@@ -1252,17 +1252,35 @@ function hideEdu(){
 }
 
 function startScreen(){
+  const pasos = [
+    'Conectar el cable de red a la toma eléctrica (220 V).',
+    'Encender el espectrofotómetro con el botón On/Off (1.4).',
+    'Esperar el autochequeo inicial con la tapa cerrada.',
+    'Dejar calentar la lámpara para estabilizar el haz de luz (Warm-up).',
+    'Calibrar el Dark Current (SET → 04. Dark Current) por haberse movido de mesa.',
+    'Ajustar la longitud de onda a 525 nm con GOTOλ (2.1).',
+    'Preparar la cubeta de vidrio del blanco (enjuagar, llenar al 65-85% y secar exterior con celulosa).',
+    'Preparar la cubeta de vidrio de la muestra (llenar al 65-85% y secar exterior).',
+    'Colocar las 2 cubetas en el portacubetas (Blanco en pos. 1 y Muestra en pos. 2).',
+    'Con el blanco en el haz (tirador 1) y tapa cerrada, calibrar el cero (F1: Basic).',
+    'Llevar la muestra al haz (tirador 2), tapa cerrada y leer la absorbancia con Test (F1).',
+    'Imprimir el registro analítico oficial con PRINT (1. Print and clear).',
+    'Anotar la absorbancia en el informe a la derecha y pulsar Entregar informe final.'
+  ];
+
+  const pasosHtml = pasos.map((p, i) => '<li><strong>Paso ' + (i+1) + ':</strong> ' + p + '</li>').join('');
+
   showOv(
     '<h2>Práctica de Laboratorio: Espectrofotometría UV-Vis</h2>' +
     '<p>Determinación analítica de rutina: mide la absorbancia de una muestra de permanganato potásico (KMnO₄) a 525 nm frente a agua destilada en un espectrofotómetro Lan-Optics.</p>' +
-    '<div class="edu-card" style="margin:12px 0;background:var(--surface);border-left:4px solid var(--signal);padding:10px 14px;border-radius:4px;font-size:0.88rem;line-height:1.4">' +
-    '<strong>Fundamento previo imprescindible:</strong>' +
-    '<ul style="margin:6px 0 0;padding-left:18px">' +
-    '<li><strong>El Blanco (100,0% T / 0,000 Abs):</strong> Contiene únicamente disolvente (agua destilada). Al hacer el cero con ZERO, se fija el 100% de transmitancia descontando la absorción del agua y de la cubeta para medir solo el analito.</li>' +
-    '<li><strong>¿Por qué no usamos Patrón aquí?:</strong> En clase se usa un patrón (o curva de calibrado) para determinar concentraciones incógnitas. En esta práctica realizamos una <em>medición directa de absorbancia</em> (Modo Basic a 525 nm); por tanto, solo se requieren el <strong>Blanco</strong> (cero) y la <strong>Muestra</strong>.</li>' +
-    '</ul>' +
+    '<div class="edu-card" style="margin:12px 0;background:var(--surface);border-left:4px solid var(--signal);padding:12px 14px;border-radius:6px;font-size:0.87rem;line-height:1.45">' +
+    '<h3 style="margin:0 0 6px;font-size:0.95rem;color:var(--signal)">¿Qué vamos a hacer?</h3>' +
+    '<p style="margin:0 0 8px">Como esta muestra es de concentración conocida no usaremos disolución patrón y haremos los siguientes pasos:</p>' +
+    '<ol style="margin:0;padding-left:18px;max-height:185px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">' +
+    pasosHtml +
+    '</ol>' +
     '</div>' +
-    '<div class="edu-highlight" style="margin:12px 0">' +
+    '<div class="edu-highlight" style="margin:10px 0">' +
     '<strong>Situación de partida:</strong> El equipo se ha cambiado de mesa esta mañana. Tras encenderlo y dejar estabilizar la lámpara, calibra el <em>Dark Current (0% T)</em> para compensar las nuevas condiciones del entorno.' +
     '</div>' +
     '<div class="row">' +
