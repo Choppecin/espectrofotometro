@@ -495,6 +495,7 @@ const F = () => cur().flags;
 
 /* ---------- Toast Notification System (Retroalimentación visual en pantalla) ---------- */
 function notify(title, desc, type='info'){
+  if (S && !S.guided) return;
   const container = $('#toast-container');
   if (!container) return;
   const t = document.createElement('div');
@@ -778,7 +779,7 @@ function f2(){
 /* ---------- Bench logic ---------- */
 function needHand(){ notify('Mano libre', 'Coge primero una cubeta de la gradilla para manipularla.', 'warn'); }
 function askGrip(c, from, i){
-  if (!S.eduSeen.grip){
+  if (S.guided && !S.eduSeen.grip){
     S.eduSeen.grip = true;
     S.pendingGrip = {c, from, i};
     showEdu('grip');
@@ -829,7 +830,7 @@ function slotClick(i){
   const c = S.slots[i];
   if (S.hand){
     if (c){ notify('Posición ocupada', 'La posición ' + (i+1) + ' ya tiene una cubeta.', 'warn'); return; }
-    if (!S.eduSeen.slot){
+    if (S.guided && !S.eduSeen.slot){
       S.eduSeen.slot = true;
       S.pendingSlot = i;
       showEdu('slot');
@@ -849,7 +850,7 @@ function wash(){
 }
 function dry(){
   const h = S.hand;
-  if (!S.eduSeen.paper){
+  if (S.guided && !S.eduSeen.paper){
     showEdu('paper');
     S.eduSeen.paper = true;
   }
@@ -866,7 +867,7 @@ function waste(){
 function openPour(kind){
   if (!S.hand) return needHand();
   if (S.hand.level>=100){ notify('Cubeta llena', 'La cubeta ya está al máximo de su capacidad.', 'warn'); return; }
-  if (!S.eduSeen.pour){
+  if (S.guided && !S.eduSeen.pour){
     S.eduSeen.pour = true;
     S.pendingPour = kind;
     showEdu('pour');
@@ -943,8 +944,13 @@ function finish(o, t){
   const timeBonus = Math.max(0, Math.round(Math.max(0, 600 - elapsedSec) * 1.5));
   const totalScore = puntosTecnica + timeBonus;
   const allStepsDone = getSteps().slice(0, 12).every(s => s.done());
+  const played = (+localStorage.getItem('espectro_games_played') || 0) + 1;
+  try { localStorage.setItem('espectro_games_played', String(played)); } catch(e){}
 
   let h = '<p class="tk-n">Práctica de Espectrofotometría: Informe de Evaluación</p><h2>' + esc(o.title) + '</h2>';
+  if (!S.guided){
+    h += '<div style="margin:4px 0 10px;display:inline-block;background:var(--signal);color:#fff;padding:3px 10px;border-radius:6px;font-size:.85rem;font-weight:700">🎮 Modo Desafío (Sin ayudas) completado</div>';
+  }
   h += '<p class="score"><b>' + o.score + '</b> / 100, ' + verdict(o.score) + '</p>';
   if (t!==null) h += '<p>Tu resultado: <strong>' + fmt(o.answer) + ' ' + o.unit + '</strong>. Valor real de referencia: <strong>' + fmt(t) + ' ' + o.unit + '</strong>.</p>';
 
@@ -961,7 +967,7 @@ function finish(o, t){
     h += '<p style="margin:0 0 10px;font-size:.88rem">Escribe tu nombre o apodo para inscribirte en la tabla de clasificación de la clase:</p>';
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
     h += '<input id="ranking-name" type="text" maxlength="20" placeholder="Tu nombre o apodo" style="flex:1;min-width:170px;padding:8px 12px;border:1px solid #A3D3A8;border-radius:6px;font:inherit">';
-    h += '<button class="btn primary" id="btn-save-ranking" data-act="save-ranking" data-score="' + o.score + '" data-time="' + elapsedSec + '" data-timestr="' + timeStr + '" data-bonus="' + timeBonus + '" data-total="' + totalScore + '">Guardar y ver clasificación</button>';
+    h += '<button class="btn primary" id="btn-save-ranking" data-act="save-ranking" data-score="' + o.score + '" data-time="' + elapsedSec + '" data-timestr="' + timeStr + '" data-bonus="' + timeBonus + '" data-total="' + totalScore + '" data-mode="' + (S.guided ? 'Guiado' : 'Desafío') + '">Guardar y ver clasificación</button>';
     h += '</div></div>';
   } else {
     h += '<div style="background:#FFF4E5;border:1px solid #FFCC80;color:#8F4700;border-radius:8px;padding:10px 14px;margin:12px 0;font-size:.88rem">';
@@ -1031,8 +1037,8 @@ function showRankingModal(highlightId){
       const isHl = item.id === highlightId;
       const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1) + 'º';
       h += '<tr class="' + (isHl ? 'highlight' : '') + '">';
-      h += '<td><span class="ranking-pos">' + medal + '</span></td>';
-      h += '<td><strong>' + esc(item.name) + '</strong>' + (isHl ? ' <span class="ranking-badge">¡Tú!</span>' : '') + '<br><small style="color:var(--muted)">' + (item.date || '') + '</small></td>';
+      const modeBadge = item.mode === 'Desafío' ? ' <span style="background:var(--signal);color:#fff;font-size:.7rem;padding:1px 5px;border-radius:3px">Sin ayudas</span>' : '';
+      h += '<td><strong>' + esc(item.name) + '</strong>' + (isHl ? ' <span class="ranking-badge">¡Tú!</span>' : '') + modeBadge + '<br><small style="color:var(--muted)">' + (item.date || '') + '</small></td>';
       h += '<td style="text-align:center">' + item.score + '/100</td>';
       h += '<td style="text-align:center;font-family:var(--pix);font-size:1.05rem">' + item.timeStr + '</td>';
       h += '<td style="text-align:right;font-weight:700;color:var(--signal);font-size:1.05rem">' + item.totalScore + ' pts</td>';
@@ -1366,7 +1372,38 @@ function hideEdu(){
   }
 }
 
+function showModeChoice(){
+  const played = (+localStorage.getItem('espectro_games_played') || 0);
+  const ordText = played <= 1 ? 'segunda' : 'nueva';
+  showOv(
+    '<h2>¿Cómo deseas jugar tu ' + ordText + ' partida?</h2>' +
+    '<p style="margin:0 0 16px;color:var(--muted)">Elige si prefieres el modo guiado con ayudas o el modo desafío sin bocadillos de texto:</p>' +
+    '<div style="display:flex;flex-direction:column;gap:12px;margin:16px 0">' +
+    '<button class="btn primary" data-act="start-free" style="padding:14px 16px;text-align:left;line-height:1.45;border-radius:8px;border:2px solid var(--signal);background:rgba(39,83,196,0.08);color:var(--ink);cursor:pointer">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between">' +
+    '<strong style="font-size:1.05rem;color:var(--signal)">🎮 Sin ayudas (Modo Desafío)</strong>' +
+    '<span style="background:var(--signal);color:#fff;font-size:.75rem;padding:2px 8px;border-radius:4px;font-weight:700">MÁS DIVERTIDO</span>' +
+    '</div>' +
+    '<span style="font-size:.86rem;color:var(--muted);display:block;margin-top:4px">Sin bocadillos de texto, sin cartel de pasos ni pistas visuales. ¡Demuestra todo lo que aprendiste y compite por la mejor puntuación!</span>' +
+    '</button>' +
+    '<button class="btn" data-act="start-guided" style="padding:14px 16px;text-align:left;line-height:1.45;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer">' +
+    '<strong style="font-size:1.05rem;display:block">🧭 Con ayudas (Modo Guiado)</strong>' +
+    '<span style="font-size:.86rem;color:var(--muted);display:block;margin-top:4px">Con cartel superior de pasos, bocadillos informativos y halo azul guiando cada acción.</span>' +
+    '</button>' +
+    '</div>' +
+    '<div class="row" style="justify-content:space-between;margin-top:14px">' +
+    '<button class="btn" data-act="show-ranking">🏆 Clasificación</button>' +
+    '<button class="btn" data-act="help-close">Cerrar</button>' +
+    '</div>'
+  );
+}
+
 function startScreen(){
+  const played = (+localStorage.getItem('espectro_games_played') || 0);
+  if (played >= 1){
+    showModeChoice();
+    return;
+  }
   showOv(
     '<h2>Práctica de Laboratorio: Espectrofotometría UV-Vis</h2>' +
     '<p>Determinación analítica de rutina: mide la absorbancia de una muestra de permanganato potásico (KMnO₄) a 525 nm frente a agua destilada en un espectrofotómetro Lan-Optics.</p>' +
@@ -1739,7 +1776,7 @@ function renderDevice(){
   $('#rod').innerHTML = '<span class="lbl">Tirador</span>' + [0,1,2,3].map(i => '<button class="rodb' + (i===S.pos?' on':'') + '" id="rod-' + i + '" data-act="rod" data-i="' + i + '" aria-label="Tirador en posición ' + (i+1) + '">' + (i+1) + '</button>').join('');
   const pw = $('#power'); pw.classList.toggle('on', S.power); pw.setAttribute('aria-pressed', S.power);
   const cb = $('#cable'); cb.classList.toggle('on', S.plugged); cb.querySelector('span').textContent = S.plugged ? 'Cable conectado (220 V)' : 'Cable desconectado';
-  $('#note').hidden = !(cur().needDark && S.darkNeeded && !cur().done);
+  $('#note').hidden = !S.guided || !(cur().needDark && S.darkNeeded && !cur().done);
   const pp = $('#printout'); pp.hidden = !S.printout; pp.textContent = S.printout || '';
 }
 function renderBench(){
@@ -1757,15 +1794,17 @@ function renderBench(){
 }
 function renderTicket(){
   const o = cur(), key = S.oi + '|' + S.guided;
-  $('#prog').textContent = 'Práctica de Laboratorio (1 de 1)';
+  $('#prog').textContent = 'Práctica de Laboratorio (1 de 1)' + (S.guided ? '' : ' — Modo Desafío');
   if (S.ticketKey===key) return;
   S.ticketKey = key; S.stepsHTML = '';
-  let h = '<p class="tk-n">Práctica de Laboratorio (1 de 1)</p><h2>' + esc(o.title) + '</h2><p>' + esc(o.brief) + '</p>';
+  let h = '<p class="tk-n">Práctica de Laboratorio (1 de 1)' + (S.guided ? '' : ' — <span style="color:var(--signal);font-weight:700">Modo Desafío (Sin ayudas)</span>') + '</p><h2>' + esc(o.title) + '</h2><p>' + esc(o.brief) + '</p>';
   h += '<dl><dt>Método</dt><dd>' + MODE_NAME[o.mode] + '</dd><dt>Longitud de onda</dt><dd>' + o.wl + ' nm (' + (o.wl<340?'UV':'Visible') + ')</dd><dt>Lámpara</dt><dd>' + (o.wl<340?'Deuterio (D₂)':'Tungsteno (W)') + '</dd><dt>Cubetas</dt><dd>' + (o.mat==='cuarzo'?'Cuarzo (Q)':'Vidrio óptico (V)') + '</dd></dl>';
   h += '<label for="result">Absorbancia medida (Abs)</label><div class="res"><input id="result" inputmode="decimal" autocomplete="off" placeholder="0,000"><span>' + o.unit + '</span></div>';
   h += '<button class="btn primary" id="deliver" data-act="deliver">Entregar informe final</button>';
-  h += '<div class="steps-header">INSTRUCCIONES DEL TRABAJO</div>';
-  h += '<ol class="steps" id="steps"' + (S.guided ? '' : ' hidden') + '></ol>';
+  if (S.guided){
+    h += '<div class="steps-header">INSTRUCCIONES DEL TRABAJO</div>';
+    h += '<ol class="steps" id="steps"></ol>';
+  }
   $('#ticket').innerHTML = h;
 }
 function renderSteps(){
@@ -1780,6 +1819,9 @@ function renderSteps(){
 
 /* Renderizado del Cartel de Instrucciones superior */
 function renderCartel(){
+  const cartel = $('#cartel-inst');
+  if (cartel) cartel.hidden = !S || !S.guided;
+  if (!S || !S.guided) return;
   const st = getSteps();
   const activeIdx = st.findIndex(s => !s.done());
   const activeStep = activeIdx >= 0 ? st[activeIdx] : null;
@@ -1821,8 +1863,14 @@ function renderCartel(){
 
 let lastCue = null;
 function renderGuide(){
+  const guideBar = document.querySelector('.guide');
+  if (guideBar) guideBar.hidden = !S || !S.guided;
+  if (!S || !S.guided){
+    if (lastCue){ lastCue.classList.remove('cue'); lastCue = null; }
+    return;
+  }
   let sel = null, text = '';
-  if (S.guided && $('#ov').hidden && $('#edu-ov').hidden && $('#grip').hidden && $('#pour').hidden){
+  if ($('#ov').hidden && $('#edu-ov').hidden && $('#grip').hidden && $('#pour').hidden){
     const st = getSteps(), s = st.find(x => !x.done());
     if (s){
       const busy = ['zeroing','dark','resetwl'].includes(S.screen);
@@ -1830,7 +1878,7 @@ function renderGuide(){
       sel = hnt.el || null; text = 'Siguiente: ' + (hnt.t || s.t);
     }
   }
-  const nx = $('#next'); if (nx.textContent!==text) nx.textContent = text;
+  const nx = $('#next'); if (nx && nx.textContent!==text) nx.textContent = text;
   const el = sel ? document.querySelector(sel) : null;
   if (lastCue && lastCue!==el) lastCue.classList.remove('cue');
   if (el && !el.classList.contains('cue')) el.classList.add('cue');
@@ -1873,7 +1921,7 @@ function tick(){
   }
 
   // Triggers automáticos didácticos
-  if (S.phase==='ready' && S.darkNeeded && !S.eduSeen.dark){
+  if (S.guided && S.phase==='ready' && S.darkNeeded && !S.eduSeen.dark){
     const st = getSteps();
     const activeStep = st.find(s => !s.done());
     if (activeStep && activeStep.t.includes('Dark current')){
@@ -1881,7 +1929,7 @@ function tick(){
       showEdu('dark');
     }
   }
-  if (S.phase==='ready' && !S.darkNeeded && !S.d2 && !S.eduSeen.uv){
+  if (S.guided && S.phase==='ready' && !S.darkNeeded && !S.d2 && !S.eduSeen.uv){
     const st = getSteps();
     const activeStep = st.find(s => !s.done());
     if (activeStep && activeStep.t.includes('deuterio')){
@@ -1904,7 +1952,9 @@ function startGame(guided){
   hideOv();
   hideEdu();
   renderAll();
-  notify('Práctica iniciada', 'Sigue las instrucciones del cartel superior.', 'good');
+  if (guided){
+    notify('Práctica iniciada', 'Sigue las instrucciones del cartel superior.', 'good');
+  }
 }
 
 document.addEventListener('click', e => {
@@ -1913,7 +1963,7 @@ document.addEventListener('click', e => {
     const a = t.dataset.act, i = +t.dataset.i;
     if (a==='start-guided') return startGame(true);
     if (a==='start-free') return startGame(false);
-    if (a==='restart') return startGame(S ? S.guided : true);
+    if (a==='restart') return showModeChoice();
     if (a==='help') return help();
     if (a==='help-close'){ hideOv(); return; }
     if (a==='buttons-guide'){ showEdu('buttons'); return; }
@@ -1937,6 +1987,7 @@ document.addEventListener('click', e => {
       const timeStr = t.dataset.timestr;
       const timeBonus = +t.dataset.bonus;
       const totalScore = +t.dataset.total;
+      const mode = t.dataset.mode || (S && S.guided ? 'Guiado' : 'Desafío');
       const nowD = new Date();
       const dateStr = String(nowD.getDate()).padStart(2,'0') + '/' + String(nowD.getMonth()+1).padStart(2,'0') + ' ' + String(nowD.getHours()).padStart(2,'0') + ':' + String(nowD.getMinutes()).padStart(2,'0');
       const entryId = 'rk_' + Date.now();
@@ -1948,6 +1999,7 @@ document.addEventListener('click', e => {
         timeStr,
         timeBonus,
         totalScore,
+        mode,
         date: dateStr
       });
       notify('¡Puntuación guardada!', name + ' ha obtenido ' + totalScore + ' puntos.', 'good');
@@ -2129,7 +2181,7 @@ document.addEventListener('drop', e => {
         notify('Mano ocupada', 'Deja primero la cubeta de la mano en la gradilla.', 'warn');
         return;
       }
-      if (!S.eduSeen.slot){
+      if (S.guided && !S.eduSeen.slot){
         S.eduSeen.slot = true;
         S.pendingSlot = targetSlot;
         S.hand = c;
