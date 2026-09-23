@@ -1408,7 +1408,10 @@ function elOf(c){ const w = where(c); if (w.at==='hand') return '#hand'; if (w.a
 function isReady(c, kind){ const o = cur(); return c && c.content===kind && c.level>=FILL_MIN && !c.wet && !c.prints && !c.contam && !c.dirty && (!o.mat || c.mat===o.mat); }
 const readyCuv = kind => S.cuvs.find(c => isReady(c, kind));
 const inHolder = kind => S.slots.some(c => isReady(c, kind));
-const toMain = () => ['zeroing','dark','resetwl'].includes(S.screen) ? {el:'#lcd', t:'Espera a que el equipo termine el proceso.'} : {el:'#k-f2', t:'Vuelve a la pantalla principal con F2.'};
+const toMain = () => {
+  if (S.screen === 'main') return null;
+  return ['zeroing','dark','resetwl'].includes(S.screen) ? {el:'#lcd', t:'Espera a que el equipo termine el proceso.'} : {el:'#k-f2', t:'Vuelve a la pantalla principal con F2.'};
+};
 function firstFree(){ const i = S.slots.indexOf(null); return i>=0 ? '#slot-'+i : '#hand-return'; }
 
 function prepHint(kind){
@@ -1489,9 +1492,9 @@ function testHint(){
   return {el:'#k-f1', t:'Pulsa Test (F1) para registrar la absorbancia de la muestra.'};
 }
 function printHint(){
-  if (S.screen==='print') return S.cursor!==0 ? {el:'#k-up', t:'Selecciona 1. Print and clear.'} : {el:'#k-f1', t:'Confirma con Ok (F1).'};
-  if (S.screen==='basic' || S.screen==='main') return {el:'#k-print', t:'Pulsa PRINT para imprimir el registro oficial.'};
-  return basicZeroHint();
+  if (S.screen==='print') return S.cursor!==0 ? {el:'#k-up', t:'Selecciona 1. Print and clear con ▲.'} : {el:'#k-f1', t:'Confirma la impresión con Ok (F1).'};
+  if (['basic','main','quant_run'].includes(S.screen)) return {el:'#k-print', t:'Pulsa la tecla PRINT (2.4) para imprimir el registro analítico oficial.'};
+  return toMain() || {el:'#k-print', t:'Pulsa la tecla PRINT (2.4) para imprimir el registro analítico oficial.'};
 }
 function quantEntry(){
   if (S.screen==='quant_blank'){ const b = beamHint('blanco'); return b || {el:'#k-f1', t:'Con el blanco en el haz y tapa cerrada, confirma con Ok (F1).'}; }
@@ -1506,11 +1509,6 @@ function qStdHint(){
   if (d<w) return {el:'#k-up', t:'Sube el dígito seleccionado hasta ' + w + ' con ▲.'};
   if (d>w) return {el:'#k-down', t:'Baja el dígito seleccionado hasta ' + w + ' con ▼.'};
   return {el:'#k-f1', t: q.di<4 ? 'Pasa al siguiente dígito con Ok (F1).' : 'Confirma con Ok (F1). El equipo medirá el estándar.'};
-}
-function printHint(){
-  if (S.screen==='print') return S.cursor!==0 ? {el:'#k-up', t:'Selecciona 1. Print and clear con ▲.'} : {el:'#k-f1', t:'Confirma la impresión con Ok (F1).'};
-  if (S.screen==='quant_run') return {el:'#k-print', t:'Pulsa PRINT para imprimir el registro de resultados.'};
-  return toMain();
 }
 function cleanCuvsHint(){
   const h = S.hand;
