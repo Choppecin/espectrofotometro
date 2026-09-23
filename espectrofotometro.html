@@ -239,6 +239,14 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--signal);outline
 .pourmarks{font-size:.82rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
 .holdbtn{touch-action:none;user-select:none;-webkit-user-select:none}
 
+/* Ranking Table */
+.ranking-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.88rem}
+.ranking-table th{background:var(--surface);padding:8px 10px;text-align:left;border-bottom:2px solid var(--line);font-size:.8rem;color:var(--muted);text-transform:uppercase}
+.ranking-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.ranking-table tr.highlight{background:rgba(39,83,196,.12);font-weight:700}
+.ranking-pos{font-weight:700;display:inline-block;min-width:26px}
+.ranking-badge{background:var(--signal);color:#fff;padding:2px 6px;border-radius:4px;font-size:.74rem;font-weight:700;margin-left:4px}
+
 /* Toast Notification System */
 .toast-container{position:fixed;top:16px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(400px,92vw)}
 .toast{pointer-events:auto;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-left:5px solid var(--signal);box-shadow:0 5px 16px rgba(0,0,0,0.14);border-radius:6px;padding:10px 14px;font-size:.88rem;display:flex;align-items:flex-start;gap:10px;opacity:0;transform:translateY(-12px);animation:toastIn .25s forwards cubic-bezier(.16,1,.3,1);transition:opacity .25s,transform .25s}
@@ -300,6 +308,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--signal);outline
     <button class="linkbtn" data-act="buttons-guide">Guía de botones</button>
     <button class="linkbtn" data-act="edu-menu">Conceptos clave</button>
     <button class="linkbtn" data-act="help">Teclas y normas</button>
+    <button class="linkbtn" data-act="show-ranking" style="font-weight:700;color:var(--signal)">🏆 Clasificación</button>
     <label><input type="checkbox" id="guided"> Ayudas paso a paso</label>
   </div>
 </header>
@@ -473,6 +482,7 @@ function newState(guided){
   });
   return {
     guided, orders:makeOrders(), oi:0, plugged:false, power:false, phase:'off', phaseEnd:0, screen:'off', ret:'main', cursor:0,
+    startTime: Date.now(), endTime: null,
     wl:546, gotoVal:546, testMode:'Abs', d2:false, d2WarmUntil:0, w:true, darkNeeded:true, warmSkipped:false,
     I0:1, zero:{wl:546, kind:'aire'}, lid:'closed', pos:0, slots:[null,null,null,null], rack:cuvs.slice(), cuvs, hand:null,
     rows:[], quant:{digits:[0,0,0,0,0], di:0, factor:0, cStd:0}, printout:null, timer:0, zeroRet:'main', zeroWhy:'', pending:null, pour:null, ticketKey:'',
@@ -923,18 +933,123 @@ function finish(o, t){
   o.done = true;
   list.sort((a,b) => CATS.indexOf(a.cat) - CATS.indexOf(b.cat));
   const fmt = x => x.toFixed(3).replace('.', ',');
+
+  if (!S.endTime) S.endTime = Date.now();
+  const elapsedSec = Math.max(1, Math.round((S.endTime - (S.startTime || (S.endTime - 60000))) / 1000));
+  const min = Math.floor(elapsedSec / 60);
+  const sec = elapsedSec % 60;
+  const timeStr = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  const puntosTecnica = o.score * 10;
+  const timeBonus = Math.max(0, Math.round(Math.max(0, 600 - elapsedSec) * 1.5));
+  const totalScore = puntosTecnica + timeBonus;
+  const allStepsDone = getSteps().slice(0, 12).every(s => s.done());
+
   let h = '<p class="tk-n">Práctica de Espectrofotometría: Informe de Evaluación</p><h2>' + esc(o.title) + '</h2>';
   h += '<p class="score"><b>' + o.score + '</b> / 100, ' + verdict(o.score) + '</p>';
   if (t!==null) h += '<p>Tu resultado: <strong>' + fmt(o.answer) + ' ' + o.unit + '</strong>. Valor real de referencia: <strong>' + fmt(t) + ' ' + o.unit + '</strong>.</p>';
+
+  h += '<div style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:12px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;text-align:center">';
+  h += '<div><small style="color:var(--muted);display:block">Técnica</small><strong style="font-size:1.1rem">' + o.score + ' / 100</strong></div>';
+  h += '<div><small style="color:var(--muted);display:block">Tiempo empleado</small><strong style="font-size:1.1rem;font-family:var(--pix)">' + timeStr + '</strong></div>';
+  h += '<div><small style="color:var(--muted);display:block">Bonus rapidez</small><strong style="font-size:1.1rem;color:var(--good)">+' + timeBonus + ' pts</strong></div>';
+  h += '<div><small style="color:var(--muted);display:block">PUNTUACIÓN TOTAL</small><strong style="font-size:1.25rem;color:var(--signal)">' + totalScore + ' pts</strong></div>';
+  h += '</div>';
+
+  if (allStepsDone){
+    h += '<div style="background:#EDF7EE;border:1px solid #A3D3A8;color:#1E592B;border-radius:8px;padding:12px 14px;margin:12px 0">';
+    h += '<strong style="display:block;font-size:1rem;margin-bottom:4px">🏆 ¡Has completado los 13 pasos! Puedes clasificar:</strong>';
+    h += '<p style="margin:0 0 10px;font-size:.88rem">Escribe tu nombre o apodo para inscribirte en la tabla de clasificación de la clase:</p>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+    h += '<input id="ranking-name" type="text" maxlength="20" placeholder="Tu nombre o apodo" style="flex:1;min-width:170px;padding:8px 12px;border:1px solid #A3D3A8;border-radius:6px;font:inherit">';
+    h += '<button class="btn primary" id="btn-save-ranking" data-act="save-ranking" data-score="' + o.score + '" data-time="' + elapsedSec + '" data-timestr="' + timeStr + '" data-bonus="' + timeBonus + '" data-total="' + totalScore + '">Guardar y ver clasificación</button>';
+    h += '</div></div>';
+  } else {
+    h += '<div style="background:#FFF4E5;border:1px solid #FFCC80;color:#8F4700;border-radius:8px;padding:10px 14px;margin:12px 0;font-size:.88rem">';
+    h += '<strong>⚠️ No clasificas en la tabla:</strong> Para entrar en el ranking de la clase es obligatorio haber completado todos los 13 pasos de la práctica (tienes pasos pendientes o incompletos).';
+    h += '</div>';
+  }
+
   h += list.length
     ? '<h3 style="margin-top:14px;font-size:1rem">Detalle de penalizaciones y observaciones:</h3><ul class="fails">' + list.map(p => '<li><em>' + p.cat + ':</em> ' + esc(p.text) + '. <b>−' + p.pts + ' pts</b></li>').join('') + '</ul>'
     : '<div class="edu-section" style="background:#EDF7EE;border-color:#A3D3A8;color:#1E592B"><strong>¡Práctica impecable!</strong> Has ejecutado todos los protocolos analíticos a la perfección: calibración Dark current tras el cambio de mesa, estabilización de la lámpara, manipulación correcta de cubetas por caras esmeriladas, calibración de blanco a 525 nm, medida de absorbancia e impresión del informe.</div>';
-  h += '<div class="row" style="margin-top:20px"><button class="btn primary" data-act="restart">Reiniciar práctica</button></div>';
+
+  h += '<div class="row" style="margin-top:20px;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  h += '<button class="btn primary" data-act="restart">Reiniciar práctica</button>';
+  h += '<button class="btn" data-act="show-ranking">Ver tabla de clasificación</button>';
+  h += '</div>';
   showOv(h);
 }
 function verdict(s){ return s>=90 ? 'Sobresaliente (Impecable)' : s>=70 ? 'Notable (Correcto)' : s>=50 ? 'Aprobado (Mejorable)' : 'Suspenso (Repetir práctica)'; }
 function showOv(h){ $('#ovd').innerHTML = h; $('#ov').hidden = false; const b = $('#ovd .btn'); if (b) b.focus(); }
 function hideOv(){ $('#ov').hidden = true; }
+
+/* ---------- Clasificación / Leaderboard ---------- */
+const RANKING_KEY = 'espectro_ranking_v1';
+function getRanking(){
+  try {
+    const raw = localStorage.getItem(RANKING_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e){}
+  return [];
+}
+function saveRankingEntry(entry){
+  const list = getRanking();
+  list.push(entry);
+  list.sort((a,b) => (b.totalScore - a.totalScore) || (a.timeSec - b.timeSec));
+  const trimmed = list.slice(0, 50);
+  try {
+    localStorage.setItem(RANKING_KEY, JSON.stringify(trimmed));
+  } catch(e){}
+  return trimmed;
+}
+function clearRanking(){
+  if (confirm('¿Seguro que deseas reiniciar y vaciar la tabla de clasificación de la clase?')){
+    localStorage.removeItem(RANKING_KEY);
+    showRankingModal();
+  }
+}
+function showRankingModal(highlightId){
+  const list = getRanking();
+  let h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<h2 style="margin:0">🏆 Clasificación de la Clase</h2>';
+  h += '<span style="font-size:.82rem;color:var(--muted)">' + list.length + ' participante' + (list.length===1?'':'s') + '</span>';
+  h += '</div>';
+  h += '<p style="font-size:.88rem;color:var(--muted);margin:0 0 12px">Clasificación por puntuación global: <strong>Técnica</strong> (0-1000 pts) + <strong>Rapidez</strong> (a menor tiempo, mayor bonus). Obligatorio haber completado todos los pasos.</p>';
+
+  if (!list.length){
+    h += '<div style="text-align:center;padding:28px 16px;background:var(--paper);border:1px dashed var(--line);border-radius:8px;color:var(--muted);margin:14px 0">';
+    h += '<div style="font-size:2.2rem;margin-bottom:6px">🥇</div>';
+    h += '<strong style="display:block;color:var(--ink)">Aún no hay puntuaciones registradas</strong>';
+    h += '<p style="margin:6px 0 0;font-size:.85rem">¡Completa la práctica con los 13 pasos para inscribir tu nombre en el primer puesto!</p>';
+    h += '</div>';
+  } else {
+    h += '<div style="max-height:55vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px;margin:12px 0">';
+    h += '<table class="ranking-table">';
+    h += '<thead><tr><th>#</th><th>Alumno</th><th style="text-align:center">Técnica</th><th style="text-align:center">Tiempo</th><th style="text-align:right">Puntos</th></tr></thead>';
+    h += '<tbody>';
+    list.forEach((item, idx) => {
+      const isHl = item.id === highlightId;
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1) + 'º';
+      h += '<tr class="' + (isHl ? 'highlight' : '') + '">';
+      h += '<td><span class="ranking-pos">' + medal + '</span></td>';
+      h += '<td><strong>' + esc(item.name) + '</strong>' + (isHl ? ' <span class="ranking-badge">¡Tú!</span>' : '') + '<br><small style="color:var(--muted)">' + (item.date || '') + '</small></td>';
+      h += '<td style="text-align:center">' + item.score + '/100</td>';
+      h += '<td style="text-align:center;font-family:var(--pix);font-size:1.05rem">' + item.timeStr + '</td>';
+      h += '<td style="text-align:right;font-weight:700;color:var(--signal);font-size:1.05rem">' + item.totalScore + ' pts</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+
+  h += '<div class="row" style="margin-top:14px;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+  h += '<button class="btn primary" data-act="restart">Jugar / Mejorar récord</button>';
+  h += '<div style="display:flex;gap:8px">';
+  if (list.length) h += '<button class="btn small" data-act="clear-ranking" style="color:var(--bad)">Borrar tabla</button>';
+  h += '<button class="btn small" data-act="ranking-close">Cerrar</button>';
+  h += '</div></div>';
+
+  showOv(h);
+}
 
 /* ---------- Educational Modals (Pop-ups didácticos) ---------- */
 function showEdu(topic){
@@ -1286,6 +1401,7 @@ function startScreen(){
     '<div class="row">' +
     '<button class="btn primary" data-act="start-guided">Empezar práctica con Ayudas paso a paso</button>' +
     '<button class="btn" data-act="buttons-guide">Guía de botones</button>' +
+    '<button class="btn" data-act="show-ranking">🏆 Clasificación</button>' +
     '<button class="btn" data-act="start-free">Empezar sin ayudas</button>' +
     '</div>'
   );
@@ -1831,6 +1947,39 @@ document.addEventListener('click', e => {
     if (a==='edu-dark'){ showEdu('dark'); return; }
     if (a==='edu-close'){ hideEdu(); return; }
     if (a==='edu-open'){ showEdu(t.dataset.topic); return; }
+    if (a==='show-ranking') return showRankingModal();
+    if (a==='ranking-close'){ hideOv(); return; }
+    if (a==='clear-ranking') return clearRanking();
+    if (a==='save-ranking'){
+      const inp = $('#ranking-name');
+      const name = inp ? inp.value.trim() : '';
+      if (!name){
+        notify('Nombre requerido', 'Escribe tu nombre o apodo para registrar tu posición en el ranking.', 'warn');
+        if (inp) inp.focus();
+        return;
+      }
+      const score = +t.dataset.score;
+      const timeSec = +t.dataset.time;
+      const timeStr = t.dataset.timestr;
+      const timeBonus = +t.dataset.bonus;
+      const totalScore = +t.dataset.total;
+      const nowD = new Date();
+      const dateStr = String(nowD.getDate()).padStart(2,'0') + '/' + String(nowD.getMonth()+1).padStart(2,'0') + ' ' + String(nowD.getHours()).padStart(2,'0') + ':' + String(nowD.getMinutes()).padStart(2,'0');
+      const entryId = 'rk_' + Date.now();
+      saveRankingEntry({
+        id: entryId,
+        name,
+        score,
+        timeSec,
+        timeStr,
+        timeBonus,
+        totalScore,
+        date: dateStr
+      });
+      notify('¡Puntuación guardada!', name + ' ha obtenido ' + totalScore + ' puntos.', 'good');
+      showRankingModal(entryId);
+      return;
+    }
 
     if (!S) return;
     switch (a){
@@ -1915,6 +2064,9 @@ document.addEventListener('keydown', e => {
     if (!$('#edu-ov').hidden){ hideEdu(); renderAll(); }
     else if (!$('#grip').hidden){ gripChoose(null); renderAll(); }
     else if (!$('#pour').hidden){ stopPour(); S.pour=null; $('#pour').hidden=true; renderAll(); }
+  } else if (e.key==='Enter' && document.activeElement && document.activeElement.id==='ranking-name'){
+    const btn = $('#btn-save-ranking');
+    if (btn) btn.click();
   }
 });
 
